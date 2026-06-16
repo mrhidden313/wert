@@ -81,4 +81,4 @@ export class FirebaseAdmin {
 	}
 }
 
-export { FirebaseAdmin, db };
+export { db };
