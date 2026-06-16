@@ -1,5 +1,6 @@
 <script>
 	import { page } from '$app/stores';
+	let { children } = $props();
 </script>
 
 <div class="flex h-screen bg-gray-950 text-white">
@@ -36,7 +37,7 @@
 	<!-- Main content -->
 	<div class="flex-1 flex flex-col overflow-hidden">
 		<main class="flex-1 overflow-x-hidden overflow-y-auto bg-gray-950 p-6">
-			<slot />
+			{@render children()}
 		</main>
 	</div>
 </div>

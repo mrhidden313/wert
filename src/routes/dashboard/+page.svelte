@@ -1,6 +1,6 @@
 <script>
 	import { enhance } from '$app/forms';
-	export let data;
+	let { data } = $props();
 	
 	let loadingAction = null;
 </script>

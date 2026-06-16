@@ -1,8 +1,8 @@
 <script>
 	import { enhance } from '$app/forms';
-	export let form;
+	let { form } = $props();
 	
-	let loading = false;
+	let loading = $state(false);
 </script>
 
 <svelte:head>
