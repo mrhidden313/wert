@@ -34,7 +34,7 @@ export async function load({ locals }) {
 		};
 	} catch (err) {
 		console.error("Dashboard Load Error:", err);
-		return { accounts: [], error: 'Failed to load accounts.' };
+		return { accounts: [], error: `Failed: ${err.message || err.toString()}` };
 	}
 }
 
