@@ -62,16 +62,16 @@ export class ChatwootAPI {
 		const userPayload = {
 			name: name,
 			email: email,
-			password: password,
-			role: 'administrator'
+			password: password
 		};
 		
-		try {
-			await this._request('POST', `/platform/api/v1/accounts/${accountResponse.id}/account_users`, userPayload);
-		} catch (e) {
-			console.error("Failed to create user for account", e);
-			// Rollback account could be needed here
-		}
+		const userResponse = await this._request('POST', '/platform/api/v1/users', userPayload);
+		
+		// Link the user to the account as an administrator
+		await this._request('POST', `/platform/api/v1/accounts/${accountResponse.id}/account_users`, {
+			user_id: userResponse.id,
+			role: 'administrator'
+		});
 		
 		return accountResponse;
 	}
