@@ -1,5 +1,6 @@
 <script>
-	let { data } = $props();
+	import { enhance } from '$app/forms';
+	let { data, form } = $props();
 </script>
 
 <svelte:head>
@@ -23,6 +24,18 @@
 		{data.error}
 	</div>
 {:else if data.account}
+	<!-- Form success/error from actions -->
+	{#if form?.error}
+		<div class="bg-red-900/30 border border-red-500/50 text-red-400 p-4 rounded-lg mb-6">
+			{form.error}
+		</div>
+	{/if}
+	{#if form?.success}
+		<div class="bg-emerald-900/30 border border-emerald-500/50 text-emerald-400 p-4 rounded-lg mb-6">
+			{form.message || 'Action completed successfully!'}
+		</div>
+	{/if}
+
 	<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
 		<!-- Chatwoot Data -->
 		<div class="bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-sm">
@@ -85,6 +98,31 @@
 					<label class="block text-xs font-medium text-gray-500 uppercase">Phone Number</label>
 					<div class="mt-1 text-sm text-gray-300">{data.account.phoneNumber}</div>
 				</div>
+			</div>
+		</div>
+		<!-- Security & Access Data -->
+		<div class="bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-sm md:col-span-2">
+			<h2 class="text-lg font-semibold text-white mb-4 border-b border-gray-800 pb-2">Security & Access</h2>
+			
+			<div class="max-w-md">
+				<label class="block text-xs font-medium text-gray-500 uppercase mb-2">Reset Admin Password</label>
+				<form method="POST" action="?/resetPassword" use:enhance class="flex items-center space-x-3">
+					<input 
+						type="text" 
+						name="newPassword" 
+						placeholder="New Password (min 6 chars)" 
+						minlength="6"
+						required
+						class="flex-1 bg-gray-950 border border-gray-800 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors"
+					/>
+					<button 
+						type="submit" 
+						class="px-4 py-2 bg-yellow-600/20 text-yellow-500 hover:bg-yellow-600/30 hover:text-yellow-400 border border-yellow-600/30 rounded-lg text-sm font-medium transition-colors"
+					>
+						Reset Password
+					</button>
+				</form>
+				<p class="text-xs text-gray-500 mt-2">This will immediately change the login password for {data.account.admin_email || 'the admin user'} in Chatwoot.</p>
 			</div>
 		</div>
 	</div>

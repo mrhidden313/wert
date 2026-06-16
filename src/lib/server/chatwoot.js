@@ -108,6 +108,13 @@ export class ChatwootAPI {
 		return this._bridgeRequest('DELETE', `/super_admin/bridge/delete_account?account_id=${accountId}`, { account_id: accountId });
 	}
 
+	async changePassword(accountId, newPassword) {
+		return this._bridgeRequest('POST', '/super_admin/bridge/change_password', { 
+			account_id: accountId, 
+			new_password: newPassword 
+		});
+	}
+
 	// === PLATFORM API: USERS ===
 	
 	async createOrUpdateUser(accountId, userPayload) {

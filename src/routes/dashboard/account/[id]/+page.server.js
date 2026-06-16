@@ -56,3 +56,29 @@ export async function load({ params }) {
 		return { error: 'Failed to load account details' };
 	}
 }
+
+export const actions = {
+	resetPassword: async ({ request, params }) => {
+		const data = await request.formData();
+		const newPassword = data.get('newPassword');
+		const accountId = params.id;
+
+		if (!newPassword || newPassword.length < 6) {
+			return fail(400, { error: 'Password must be at least 6 characters long' });
+		}
+
+		try {
+			const chatwoot = new ChatwootAPI();
+			const result = await chatwoot.changePassword(accountId, newPassword);
+			
+			if (result && result.success === false) {
+				return fail(400, { error: result.error || 'Failed to update password' });
+			}
+
+			return { success: true, message: 'Password reset successfully!' };
+		} catch (error) {
+			console.error('Password reset error:', error);
+			return fail(500, { error: 'Internal server error while resetting password' });
+		}
+	}
+};
