@@ -84,16 +84,13 @@ export class ChatwootAPI {
 	}
 
 	async updateAccountPlanLimits(accountId, planName) {
-		// For the Bridge, we can either call the Platform API to update features,
-		// or if we just want to set Firebase data, we skip.
-		// Since we want to update limits/features on the account, we should still use Platform API!
-		// Wait, we can still use the Platform API to update the account features!
 		const payload = {
+			account_id: accountId,
 			limits: { agents: 100, inboxes: 100 },
 			features: { inbound_emails: true, campaigns: true },
 			custom_attributes: { plan_name: planName }
 		};
-		return this._request('PATCH', `/platform/api/v1/accounts/${accountId}`, payload);
+		return this._bridgeRequest('POST', '/super_admin/bridge/update_limits', payload);
 	}
 
 	async suspendAccount(accountId) {
