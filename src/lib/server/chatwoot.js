@@ -85,7 +85,6 @@ export class ChatwootAPI {
 				inboxes: 100
 			},
 			features: {
-				api_channel: true,
 				inbound_emails: true,
 				campaigns: true
 			},
