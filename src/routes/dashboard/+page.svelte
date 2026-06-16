@@ -2,7 +2,19 @@
 	import { enhance } from '$app/forms';
 	let { data } = $props();
 	
-	let loadingAction = null;
+	let loadingAction = $state(null);
+	let currentTab = $state('active'); // 'active', 'expired', 'suspended'
+
+	let filteredAccounts = $derived((data.accounts || []).filter(account => {
+		if (currentTab === 'active') {
+			return account.status === 'active' && account.daysRemaining > 0;
+		} else if (currentTab === 'expired') {
+			return account.status === 'active' && account.daysRemaining <= 0;
+		} else if (currentTab === 'suspended') {
+			return account.status === 'suspended';
+		}
+		return true;
+	}));
 </script>
 
 <svelte:head>
@@ -25,6 +37,26 @@
 	</div>
 {/if}
 
+<div class="mb-6 border-b border-gray-800">
+	<nav class="-mb-px flex space-x-8" aria-label="Tabs">
+		<button 
+			class="{currentTab === 'active' ? 'border-emerald-500 text-emerald-400' : 'border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-700'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors"
+			onclick={() => currentTab = 'active'}>
+			Active
+		</button>
+		<button 
+			class="{currentTab === 'expired' ? 'border-yellow-500 text-yellow-400' : 'border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-700'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors"
+			onclick={() => currentTab = 'expired'}>
+			Expired
+		</button>
+		<button 
+			class="{currentTab === 'suspended' ? 'border-red-500 text-red-400' : 'border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-700'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors"
+			onclick={() => currentTab = 'suspended'}>
+			Suspended
+		</button>
+	</nav>
+</div>
+
 <div class="bg-gray-900 border border-gray-800 rounded-xl shadow-sm overflow-hidden">
 	<div class="overflow-x-auto">
 		<table class="min-w-full divide-y divide-gray-800">
@@ -39,7 +71,7 @@
 				</tr>
 			</thead>
 			<tbody class="divide-y divide-gray-800">
-				{#each data.accounts as account}
+				{#each filteredAccounts as account}
 					<tr class="hover:bg-gray-800/50 transition-colors">
 						<td class="px-6 py-4 whitespace-nowrap">
 							<a href="/dashboard/account/{account.id}" class="text-sm font-medium text-emerald-400 hover:text-emerald-300 hover:underline">{account.name}</a>
@@ -117,10 +149,10 @@
 					</tr>
 				{/each}
 
-				{#if data.accounts.length === 0}
+				{#if filteredAccounts.length === 0}
 					<tr>
 						<td colspan="6" class="px-6 py-12 text-center text-gray-500">
-							No accounts found. Create one to get started.
+							No accounts found in this category.
 						</td>
 					</tr>
 				{/if}
