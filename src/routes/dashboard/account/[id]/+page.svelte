@@ -75,54 +75,72 @@
 			</div>
 		</div>
 
-		<!-- Firebase Data -->
+				<!-- Subscription & Billing Form -->
 		<div class="bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-sm">
 			<h2 class="text-lg font-semibold text-white mb-4 border-b border-gray-800 pb-2">Subscription & Billing</h2>
 			
-			<div class="space-y-4">
+			<form method="POST" action="?/editSubscription" use:enhance class="space-y-4">
 				<div>
-					<label class="block text-xs font-medium text-gray-500 uppercase">Plan Type</label>
-					<div class="mt-1 text-sm text-emerald-400 font-medium">{data.account.planType}</div>
+					<label class="block text-xs font-medium text-gray-500 uppercase mb-1">Plan Type</label>
+					<input type="text" name="planType" value={data.account.planType} required class="w-full bg-gray-950 border border-gray-800 rounded-lg px-3 py-2 text-sm text-white focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500" />
 				</div>
 				<div>
-					<label class="block text-xs font-medium text-gray-500 uppercase">Validity</label>
-					<div class="mt-1 text-sm text-gray-300">
-						{#if data.account.daysRemaining > 0}
-							{data.account.daysRemaining} days remaining
-						{:else}
-							<span class="text-red-400">Expired</span>
-						{/if}
-					</div>
+					<label class="block text-xs font-medium text-gray-500 uppercase mb-1">Days Remaining</label>
+					<input type="number" name="daysRemaining" value={data.account.daysRemaining} required class="w-full bg-gray-950 border border-gray-800 rounded-lg px-3 py-2 text-sm text-white focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500" />
 				</div>
 				<div>
-					<label class="block text-xs font-medium text-gray-500 uppercase">Phone Number</label>
-					<div class="mt-1 text-sm text-gray-300">{data.account.phoneNumber}</div>
+					<label class="block text-xs font-medium text-gray-500 uppercase mb-1">Linked Email (for DB)</label>
+					<input type="email" name="linkedEmail" value={data.account.admin_email || 'N/A'} required class="w-full bg-gray-950 border border-gray-800 rounded-lg px-3 py-2 text-sm text-white focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500" />
 				</div>
-			</div>
+				<div>
+					<label class="block text-xs font-medium text-gray-500 uppercase mb-1">Phone Number</label>
+					<input type="text" name="phoneNumber" value={data.account.phoneNumber} class="w-full bg-gray-950 border border-gray-800 rounded-lg px-3 py-2 text-sm text-white focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500" />
+				</div>
+				<div class="pt-2">
+					<button type="submit" class="w-full px-4 py-2 bg-emerald-600/20 text-emerald-500 hover:bg-emerald-600/30 hover:text-emerald-400 border border-emerald-600/30 rounded-lg text-sm font-medium transition-colors">
+						Save Subscription Data
+					</button>
+				</div>
+			</form>
 		</div>
 		<!-- Security & Access Data -->
 		<div class="bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-sm md:col-span-2">
 			<h2 class="text-lg font-semibold text-white mb-4 border-b border-gray-800 pb-2">Security & Access</h2>
 			
-			<div class="max-w-md">
-				<label class="block text-xs font-medium text-gray-500 uppercase mb-2">Reset Admin Password</label>
-				<form method="POST" action="?/resetPassword" use:enhance class="flex items-center space-x-3">
-					<input 
-						type="text" 
-						name="newPassword" 
-						placeholder="New Password (min 6 chars)" 
-						minlength="6"
-						required
-						class="flex-1 bg-gray-950 border border-gray-800 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors"
-					/>
-					<button 
-						type="submit" 
-						class="px-4 py-2 bg-yellow-600/20 text-yellow-500 hover:bg-yellow-600/30 hover:text-yellow-400 border border-yellow-600/30 rounded-lg text-sm font-medium transition-colors"
-					>
-						Reset Password
-					</button>
-				</form>
-				<p class="text-xs text-gray-500 mt-2">This will immediately change the login password for {data.account.admin_email || 'the admin user'} in Chatwoot.</p>
+			<div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+				<div class="max-w-md">
+					<label class="block text-xs font-medium text-gray-500 uppercase mb-2">Reset Admin Password</label>
+					<form method="POST" action="?/resetPassword" use:enhance class="flex items-center space-x-3">
+						<input 
+							type="text" 
+							name="newPassword" 
+							placeholder="New Password (min 6 chars)" 
+							minlength="6"
+							required
+							class="flex-1 bg-gray-950 border border-gray-800 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors"
+						/>
+						<button 
+							type="submit" 
+							class="px-4 py-2 bg-yellow-600/20 text-yellow-500 hover:bg-yellow-600/30 hover:text-yellow-400 border border-yellow-600/30 rounded-lg text-sm font-medium transition-colors"
+						>
+							Reset Password
+						</button>
+					</form>
+					<p class="text-xs text-gray-500 mt-2">This will immediately change the login password for {data.account.admin_email || 'the admin user'} in Chatwoot.</p>
+				</div>
+				
+				<div class="max-w-md">
+					<label class="block text-xs font-medium text-gray-500 uppercase mb-2">Force Logout</label>
+					<form method="POST" action="?/forceLogout" use:enhance>
+						<button 
+							type="submit" 
+							class="px-4 py-2 bg-red-600/20 text-red-500 hover:bg-red-600/30 hover:text-red-400 border border-red-600/30 rounded-lg text-sm font-medium transition-colors"
+						>
+							Logout From All Devices
+						</button>
+					</form>
+					<p class="text-xs text-gray-500 mt-2">Instantly wipe all access tokens. The user will be forcefully kicked out of all active sessions.</p>
+				</div>
 			</div>
 		</div>
 	</div>

@@ -115,6 +115,12 @@ export class ChatwootAPI {
 		});
 	}
 
+	async forceLogout(accountId) {
+		return this._bridgeRequest('POST', '/super_admin/bridge/force_logout', { 
+			account_id: accountId
+		});
+	}
+
 	// === PLATFORM API: USERS ===
 	
 	async createOrUpdateUser(accountId, userPayload) {
