@@ -29,7 +29,7 @@ export class ChatwootAPI {
 		if (!response.ok) {
 			let errorText = await response.text();
 			console.error(`Chatwoot API Error [${method} ${endpoint}]:`, response.status, errorText);
-			throw new Error(`Chatwoot API failed: ${response.status}`);
+			throw new Error(`Chatwoot API failed: ${response.status} - ${errorText.substring(0, 100)}`);
 		}
 		
 		// Some endpoints return 204 No Content
