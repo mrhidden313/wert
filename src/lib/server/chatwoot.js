@@ -38,70 +38,74 @@ export class ChatwootAPI {
 		return await response.json();
 	}
 
-	// === PLATFORM API: ACCOUNTS ===
+	async _bridgeRequest(method, endpoint, body = null) {
+		const url = `${CHATWOOT_BASE_URL}${endpoint}`;
+		// Retrieve secret from environment, default empty if not set
+		const secret = env.INSTANTFLOW_ADMIN_SECRET || 'secret123';
+		const options = {
+			method,
+			headers: {
+				'Content-Type': 'application/json',
+				'X-Admin-Secret': secret,
+				'X-Timestamp': Math.floor(Date.now() / 1000).toString()
+			}
+		};
+		if (body) {
+			options.body = JSON.stringify(body);
+		}
 
-	async listAccounts() {
-		return this._request('GET', '/platform/api/v1/accounts');
+		const response = await fetch(url, options);
+		
+		if (!response.ok) {
+			let errorText = await response.text();
+			console.error(`Chatwoot Bridge Error [${method} ${endpoint}]:`, response.status, errorText);
+			throw new Error(`Chatwoot Bridge failed: ${response.status} - ${errorText.substring(0, 100)}`);
+		}
+		
+		return await response.json();
 	}
 
-	async getAccount(accountId) {
-		return this._request('GET', `/platform/api/v1/accounts/${accountId}`);
+	// === BRIDGE API: ACCOUNTS ===
+
+	async listAccounts() {
+		// Uses the bridge which returns ALL accounts safely
+		return this._bridgeRequest('GET', '/super_admin/bridge/accounts');
 	}
 
 	async createAccount(name, email, password) {
 		const payload = {
-			name: name,
-			custom_attributes: { created_via: 'instantflow-admin' }
+			account_name: name,
+			admin_email: email,
+			admin_password: password
 		};
-		
-		// The Platform API requires creating an account first, 
-		// then we might need to create an Admin user for it
-		const accountResponse = await this._request('POST', '/platform/api/v1/accounts', payload);
-		
-		// Let's create an Admin User for this account
-		const userPayload = {
-			name: name,
-			email: email,
-			password: password
-		};
-		
-		const userResponse = await this._request('POST', '/platform/api/v1/users', userPayload);
-		
-		// Link the user to the account as an administrator
-		await this._request('POST', `/platform/api/v1/accounts/${accountResponse.id}/account_users`, {
-			user_id: userResponse.id,
-			role: 'administrator'
-		});
-		
-		return accountResponse;
+		// The bridge creates the account and the admin user natively, completely solving the bug!
+		const response = await this._bridgeRequest('POST', '/super_admin/bridge/provision_account', payload);
+		return { id: response.account_id, ...response };
 	}
 
 	async updateAccountPlanLimits(accountId, planName) {
-		// As requested: all allow, default all.
-		// We just pass custom limits or keep it open.
+		// For the Bridge, we can either call the Platform API to update features,
+		// or if we just want to set Firebase data, we skip.
+		// Since we want to update limits/features on the account, we should still use Platform API!
+		// Wait, we can still use the Platform API to update the account features!
 		const payload = {
-			limits: {
-				agents: 100, // virtually unlimited
-				inboxes: 100
-			},
-			features: {
-				inbound_emails: true,
-				campaigns: true
-			},
-			custom_attributes: {
-				plan_name: planName
-			}
+			limits: { agents: 100, inboxes: 100 },
+			features: { inbound_emails: true, campaigns: true },
+			custom_attributes: { plan_name: planName }
 		};
-		
 		return this._request('PATCH', `/platform/api/v1/accounts/${accountId}`, payload);
 	}
 
 	async suspendAccount(accountId) {
-		return this._request('PATCH', `/platform/api/v1/accounts/${accountId}`, { status: 'suspended' });
+		return this._bridgeRequest('POST', '/super_admin/bridge/toggle_suspension', { account_id: accountId, action_type: 'suspend' });
 	}
 
 	async reactivateAccount(accountId) {
-		return this._request('PATCH', `/platform/api/v1/accounts/${accountId}`, { status: 'active' });
+		return this._bridgeRequest('POST', '/super_admin/bridge/toggle_suspension', { account_id: accountId, action_type: 'active' });
+	}
+
+	async destroyAccount(accountId) {
+		return this._bridgeRequest('DELETE', '/super_admin/bridge/delete_account', { account_id: accountId });
 	}
 
 	// === PLATFORM API: USERS ===
@@ -111,3 +115,4 @@ export class ChatwootAPI {
 	}
 
 }
+

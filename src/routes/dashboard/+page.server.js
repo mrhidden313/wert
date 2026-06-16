@@ -6,12 +6,16 @@ export async function load({ locals }) {
 	try {
 		const chatwoot = new ChatwootAPI();
 		
-		// Fetch from Chatwoot
+		// Fetch from Chatwoot Bridge
 		const accountsResponse = await chatwoot.listAccounts();
-		let accounts = accountsResponse || [];
-		// The API might return { payload: [...] } or just an array depending on the exact version. 
-		// Usually it's an array for platform accounts or wrapped in payload.
-		if (accounts.payload) accounts = accounts.payload;
+		let accounts = [];
+		if (accountsResponse && accountsResponse.accounts) {
+			accounts = accountsResponse.accounts;
+		} else if (Array.isArray(accountsResponse)) {
+			accounts = accountsResponse;
+		} else if (accountsResponse.payload) {
+			accounts = accountsResponse.payload;
+		}
 
 		// Fetch from Firebase
 		const subscriptions = await FirebaseAdmin.getAllSubscriptions();
@@ -25,7 +29,7 @@ export async function load({ locals }) {
 				status: acc.status || 'active', // active or suspended
 				planType: sub.planType || 'Unknown',
 				daysRemaining: sub.daysRemaining || 0,
-				linkedEmail: sub.linkedEmail || 'N/A'
+				linkedEmail: acc.admin_email || sub.linkedEmail || 'N/A' // Use Chatwoot admin email if available
 			};
 		});
 
@@ -60,12 +64,26 @@ export const actions = {
 		const days = parseInt(data.get('daysRemaining') || '30', 10);
 		
 		try {
-			const chatwoot = new ChatwootAPI(locals.adminToken);
+			const chatwoot = new ChatwootAPI();
 			await chatwoot.reactivateAccount(accountId);
 			await FirebaseAdmin.updateSubscription(accountId, { status: 'active', planType, daysRemaining: days });
 			return { success: true };
 		} catch (err) {
 			return fail(500, { error: 'Failed to renew account' });
+		}
+	},
+
+	destroy: async ({ request, locals }) => {
+		const data = await request.formData();
+		const accountId = data.get('accountId');
+		
+		try {
+			const chatwoot = new ChatwootAPI();
+			await chatwoot.destroyAccount(accountId);
+			return { success: true };
+		} catch (err) {
+			console.error("Failed to destroy account", err);
+			return fail(500, { error: 'Failed to destroy account. Check logs.' });
 		}
 	}
 };

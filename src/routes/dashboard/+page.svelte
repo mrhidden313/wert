@@ -42,7 +42,7 @@
 				{#each data.accounts as account}
 					<tr class="hover:bg-gray-800/50 transition-colors">
 						<td class="px-6 py-4 whitespace-nowrap">
-							<div class="text-sm font-medium text-white">{account.name}</div>
+							<a href="/dashboard/account/{account.id}" class="text-sm font-medium text-emerald-400 hover:text-emerald-300 hover:underline">{account.name}</a>
 							<div class="text-xs text-gray-500">ID: {account.id}</div>
 						</td>
 						<td class="px-6 py-4 whitespace-nowrap">
@@ -82,7 +82,7 @@
 									return async ({ update }) => { await update(); loadingAction = null; };
 								}}>
 									<input type="hidden" name="accountId" value={account.id} />
-									<button type="submit" disabled={loadingAction} class="text-red-400 hover:text-red-300 disabled:opacity-50">
+									<button type="submit" disabled={loadingAction} class="text-yellow-500 hover:text-yellow-400 disabled:opacity-50">
 										Suspend
 									</button>
 								</form>
@@ -100,6 +100,18 @@
 									</button>
 								</form>
 							{/if}
+
+							<!-- Destroy Action -->
+							<form method="POST" action="?/destroy" use:enhance={() => {
+								if (!confirm('Are you absolutely sure? This will delete the account and all its data permanently.')) return () => {};
+								loadingAction = `destroy-${account.id}`;
+								return async ({ update }) => { await update(); loadingAction = null; };
+							}}>
+								<input type="hidden" name="accountId" value={account.id} />
+								<button type="submit" disabled={loadingAction} class="text-red-500 hover:text-red-400 disabled:opacity-50 ml-2 border-l border-gray-700 pl-3">
+									Destroy
+								</button>
+							</form>
 
 						</td>
 					</tr>
