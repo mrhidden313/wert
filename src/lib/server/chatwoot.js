@@ -10,7 +10,7 @@ export class ChatwootAPI {
 		this.token = token || env.CHATWOOT_SUPERADMIN_TOKEN;
 		this.headers = {
 			'Content-Type': 'application/json',
-			'api_access_token': this.token
+			'api-access-token': this.token
 		};
 	}
 
