@@ -25,18 +25,26 @@ export const actions = {
 			const result = await response.json();
 			const user = result.data;
 
-			// Verify if the user is a super admin
-			// If not a super admin, we reject the login.
-			// Depending on Chatwoot's API, the role might be under user.role or type.
-			// Let's assume anyone who successfully logs in here and has a valid token gets admin access,
-			// but we will store their access_token to perform actions on their behalf.
-			
-			// We store the access_token in an HTTP-only cookie.
+			// We get the access_token from the headers or payload
 			const accessToken = response.headers.get('access-token') || user.access_token;
 			if (!accessToken) {
 				return fail(500, { email, error: "Failed to retrieve access token from server" });
 			}
 
+			// SECURITY CHECK: Verify if the user is actually a Super Admin
+			// We do this by attempting to hit a Platform API endpoint using their token.
+			// Normal users or regular admins will be rejected with 401/403.
+			const verifyResponse = await fetch('https://api.instantflow.online/platform/api/v1/accounts', {
+				method: 'GET',
+				headers: { 'api_access_token': accessToken }
+			});
+
+			if (!verifyResponse.ok) {
+				// The user is not a Super Admin. They might be a regular user.
+				return fail(403, { email, error: "Access Denied: You are not a Super Admin." });
+			}
+
+			// If the check passes, they are a genuine Super Admin.
 			cookies.set('admin_session', accessToken, {
 				path: '/',
 				httpOnly: true,
