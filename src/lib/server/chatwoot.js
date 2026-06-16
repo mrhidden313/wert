@@ -105,7 +105,7 @@ export class ChatwootAPI {
 	}
 
 	async destroyAccount(accountId) {
-		return this._bridgeRequest('DELETE', '/super_admin/bridge/delete_account', { account_id: accountId });
+		return this._bridgeRequest('DELETE', `/super_admin/bridge/delete_account?account_id=${accountId}`, { account_id: accountId });
 	}
 
 	// === PLATFORM API: USERS ===

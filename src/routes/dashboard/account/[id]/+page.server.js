@@ -22,7 +22,20 @@ export async function load({ params }) {
 		}
 
 		// Fetch Firebase subscription
-		const subscription = await FirebaseAdmin.getSubscription(accountId) || {};
+		let subscription = await FirebaseAdmin.getSubscription(accountId);
+		
+		// Fallback for old Firestore documents using linkedEmail
+		if (!subscription && account.admin_email) {
+			const allSubs = await FirebaseAdmin.getAllSubscriptions();
+			const matchingSubKey = Object.keys(allSubs).find(key => 
+				allSubs[key].linkedEmail === account.admin_email
+			);
+			if (matchingSubKey) {
+				subscription = allSubs[matchingSubKey];
+			}
+		}
+		
+		subscription = subscription || {};
 
 		return {
 			account: {

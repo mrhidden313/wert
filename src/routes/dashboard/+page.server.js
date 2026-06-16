@@ -22,7 +22,20 @@ export async function load({ locals }) {
 
 		// Merge data
 		const mergedAccounts = accounts.map(acc => {
-			const sub = subscriptions[acc.id] || {};
+			let sub = subscriptions[acc.id];
+			
+			// Fallback: If no direct ID match, search by linkedEmail (for old Firestore documents)
+			if (!sub && acc.admin_email) {
+				const matchingSubKey = Object.keys(subscriptions).find(key => 
+					subscriptions[key].linkedEmail === acc.admin_email
+				);
+				if (matchingSubKey) {
+					sub = subscriptions[matchingSubKey];
+				}
+			}
+			
+			sub = sub || {};
+			
 			return {
 				id: acc.id,
 				name: acc.name,
