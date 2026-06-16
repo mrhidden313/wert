@@ -1,4 +1,5 @@
 import { fail, redirect } from '@sveltejs/kit';
+import { env } from '$env/dynamic/private';
 
 export const actions = {
 	default: async ({ request, cookies }) => {
@@ -10,53 +11,31 @@ export const actions = {
 			return fail(400, { email, missing: true });
 		}
 
-		try {
-			// Proxy login to Chatwoot to verify Super Admin credentials
-			const response = await fetch('https://api.instantflow.online/auth/sign_in', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ email, password })
-			});
+		// Use Environment Variables for Super Admin authentication
+		const expectedEmail = env.ADMIN_EMAIL;
+		const expectedPassword = env.ADMIN_PASSWORD;
 
-			if (!response.ok) {
-				return fail(401, { email, incorrect: true });
-			}
-
-			const result = await response.json();
-			const user = result.data;
-
-			// We get the access_token from the headers or payload
-			const accessToken = response.headers.get('access-token') || user.access_token;
-			if (!accessToken) {
-				return fail(500, { email, error: "Failed to retrieve access token from server" });
-			}
-
-			// SECURITY CHECK: Verify if the user is actually a Super Admin
-			// We do this by attempting to hit a Platform API endpoint using their token.
-			// Normal users or regular admins will be rejected with 401/403.
-			const verifyResponse = await fetch('https://api.instantflow.online/platform/api/v1/accounts', {
-				method: 'GET',
-				headers: { 'api_access_token': accessToken }
-			});
-
-			if (!verifyResponse.ok) {
-				// The user is not a Super Admin. They might be a regular user.
-				return fail(403, { email, error: "Access Denied: You are not a Super Admin." });
-			}
-
-			// If the check passes, they are a genuine Super Admin.
-			cookies.set('admin_session', accessToken, {
-				path: '/',
-				httpOnly: true,
-				sameSite: 'strict',
-				secure: process.env.NODE_ENV === 'production',
-				maxAge: 60 * 60 * 24 * 7 // 1 week
-			});
-
-		} catch (err) {
-			console.error("Login Proxy Error:", err);
-			return fail(500, { email, error: "Internal server error connecting to Chatwoot" });
+		if (!expectedEmail || !expectedPassword) {
+			console.error("ADMIN_EMAIL or ADMIN_PASSWORD is not set in environment variables!");
+			return fail(500, { email, error: "Server Configuration Error: Admin credentials not set in Vercel." });
 		}
+
+		if (email !== expectedEmail || password !== expectedPassword) {
+			return fail(401, { email, incorrect: true, error: "Access Denied: Invalid Email or Password." });
+		}
+
+		// If credentials match, generate a simple secure session token
+		// (In a real app this could be a JWT, but for a single admin, a static string or random UUID is fine, 
+		// because the backend only relies on the Chatwoot Platform Token for API calls)
+		const sessionToken = "super-admin-session-token-" + Date.now();
+
+		cookies.set('admin_session', sessionToken, {
+			path: '/',
+			httpOnly: true,
+			sameSite: 'strict',
+			secure: process.env.NODE_ENV === 'production',
+			maxAge: 60 * 60 * 24 * 7 // 1 week
+		});
 
 		throw redirect(303, '/dashboard');
 	}

@@ -18,7 +18,7 @@ export const actions = {
 
 		try {
 			// 1. Initialize API with the logged-in super admin token
-			const chatwoot = new ChatwootAPI(locals.adminToken);
+			const chatwoot = new ChatwootAPI();
 
 			// 2. Create the Account and the User in Chatwoot seamlessly
 			const accountResult = await chatwoot.createAccount(companyName, email, password);

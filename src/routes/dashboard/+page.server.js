@@ -4,7 +4,7 @@ import { fail } from '@sveltejs/kit';
 
 export async function load({ locals }) {
 	try {
-		const chatwoot = new ChatwootAPI(locals.adminToken);
+		const chatwoot = new ChatwootAPI();
 		
 		// Fetch from Chatwoot
 		const accountsResponse = await chatwoot.listAccounts();
@@ -44,7 +44,7 @@ export const actions = {
 		const accountId = data.get('accountId');
 		
 		try {
-			const chatwoot = new ChatwootAPI(locals.adminToken);
+			const chatwoot = new ChatwootAPI();
 			await chatwoot.suspendAccount(accountId);
 			await FirebaseAdmin.updateSubscription(accountId, { status: 'suspended', daysRemaining: 0 });
 			return { success: true };
