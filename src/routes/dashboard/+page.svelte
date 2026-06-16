@@ -1,5 +1,6 @@
 <script>
 	import { enhance } from '$app/forms';
+	import { goto } from '$app/navigation';
 	let { data } = $props();
 	
 	let loadingAction = $state(null);
@@ -72,9 +73,12 @@
 			</thead>
 			<tbody class="divide-y divide-gray-800">
 				{#each filteredAccounts as account}
-					<tr class="hover:bg-gray-800/50 transition-colors">
+					<tr 
+						class="hover:bg-gray-800/50 transition-colors cursor-pointer"
+						onclick={() => goto(`/dashboard/account/${account.id}`)}
+					>
 						<td class="px-6 py-4 whitespace-nowrap">
-							<a href="/dashboard/account/{account.id}" class="text-sm font-medium text-emerald-400 hover:text-emerald-300 hover:underline">{account.name}</a>
+							<span class="text-sm font-medium text-emerald-400">{account.name}</span>
 							<div class="text-xs text-gray-500">ID: {account.id}</div>
 						</td>
 						<td class="px-6 py-4 whitespace-nowrap">
@@ -105,7 +109,10 @@
 								</span>
 							{/if}
 						</td>
-						<td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium flex justify-end space-x-3">
+						<td 
+							class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium flex justify-end space-x-3"
+							onclick={(e) => e.stopPropagation()}
+						>
 							
 							{#if account.status === 'active'}
 								<!-- Suspend Action -->
