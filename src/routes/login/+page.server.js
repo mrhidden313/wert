@@ -1,8 +1,58 @@
 import { fail, redirect } from '@sveltejs/kit';
 import { env } from '$env/dynamic/private';
+import { signSession } from '$lib/server/auth';
+
+// Simple in-memory rate limiter
+const rateLimits = new Map();
+const MAX_ATTEMPTS = 5;
+const BLOCK_DURATION_MS = 15 * 60 * 1000; // 15 minutes
+
+function checkRateLimit(ip) {
+	const now = Date.now();
+	const record = rateLimits.get(ip);
+
+	if (record) {
+		if (record.blockedUntil && now < record.blockedUntil) {
+			return { allowed: false, remainingTimeMs: record.blockedUntil - now };
+		}
+		if (record.blockedUntil && now > record.blockedUntil) {
+			// Unblock
+			rateLimits.delete(ip);
+		}
+	}
+	return { allowed: true };
+}
+
+function recordFailedAttempt(ip) {
+	const now = Date.now();
+	let record = rateLimits.get(ip) || { attempts: 0, blockedUntil: null };
+	
+	record.attempts += 1;
+	if (record.attempts >= MAX_ATTEMPTS) {
+		record.blockedUntil = now + BLOCK_DURATION_MS;
+	}
+	
+	rateLimits.set(ip, record);
+	
+	// Cleanup old records periodically to prevent memory leak (simple approach)
+	if (rateLimits.size > 10000) rateLimits.clear(); 
+}
+
+function clearAttempts(ip) {
+	rateLimits.delete(ip);
+}
 
 export const actions = {
-	default: async ({ request, cookies }) => {
+	default: async ({ request, cookies, getClientAddress }) => {
+		// Use IP for rate limiting
+		const ip = getClientAddress();
+		const rateLimit = checkRateLimit(ip);
+		
+		if (!rateLimit.allowed) {
+			const waitMins = Math.ceil(rateLimit.remainingTimeMs / 60000);
+			return fail(429, { error: `Too many failed attempts. Please try again in ${waitMins} minutes.` });
+		}
+
 		const data = await request.formData();
 		const email = data.get('email');
 		const password = data.get('password');
@@ -21,13 +71,16 @@ export const actions = {
 		}
 
 		if (email !== expectedEmail || password !== expectedPassword) {
+			recordFailedAttempt(ip);
 			return fail(401, { email, incorrect: true, error: "Access Denied: Invalid Email or Password." });
 		}
 
-		// If credentials match, generate a simple secure session token
-		// (In a real app this could be a JWT, but for a single admin, a static string or random UUID is fine, 
-		// because the backend only relies on the Chatwoot Platform Token for API calls)
-		const sessionToken = "super-admin-session-token-" + Date.now();
+		// Clear attempts on success
+		clearAttempts(ip);
+
+		// If credentials match, generate a secure, cryptographically signed session token
+		const payload = `session|${expectedEmail}|${Date.now()}`;
+		const sessionToken = signSession(payload);
 
 		cookies.set('admin_session', sessionToken, {
 			path: '/',
