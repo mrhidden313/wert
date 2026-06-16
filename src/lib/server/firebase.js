@@ -69,7 +69,16 @@ export class FirebaseAdmin {
 	static async getSubscription(accountId) {
 		const docRef = db.collection('subscriptions').doc(String(accountId));
 		const doc = await docRef.get();
-		if (!doc.exists) return null;
-		return doc.data();
+		return doc.exists ? doc.data() : null;
+	}
+
+	/**
+	 * Deletes a subscription document by its Document ID.
+	 * Used to clean up old stray documents with random IDs during migration.
+	 */
+	static async deleteSubscription(docId) {
+		await db.collection('subscriptions').doc(String(docId)).delete();
 	}
 }
+
+export { FirebaseAdmin, db };

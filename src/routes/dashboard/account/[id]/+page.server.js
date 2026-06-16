@@ -114,6 +114,17 @@ export const actions = {
 		}
 
 		try {
+			// Find old document if it exists to delete it (cleanup random IDs)
+			const allSubs = await FirebaseAdmin.getAllSubscriptions();
+			const matchingSubKey = Object.keys(allSubs).find(key => 
+				key !== String(accountId) && allSubs[key].linkedEmail === linkedEmail
+			);
+			
+			if (matchingSubKey) {
+				await FirebaseAdmin.deleteSubscription(matchingSubKey);
+				console.log(`Deleted old subscription doc: ${matchingSubKey} for email ${linkedEmail}`);
+			}
+
 			// Update in Firebase (this also acts as a migration if it was stored by a random ID before)
 			await FirebaseAdmin.updateSubscription(accountId, {
 				planType,
