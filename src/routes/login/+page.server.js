@@ -50,7 +50,11 @@ export const actions = {
 		
 		if (!rateLimit.allowed) {
 			const waitMins = Math.ceil(rateLimit.remainingTimeMs / 60000);
-			return fail(429, { error: `Too many failed attempts. Please try again in ${waitMins} minutes.` });
+			return fail(429, { 
+				blocked: true, 
+				unlockTime: Date.now() + rateLimit.remainingTimeMs,
+				error: `Too many failed attempts. Please try again in ${waitMins} minutes.` 
+			});
 		}
 
 		const data = await request.formData();

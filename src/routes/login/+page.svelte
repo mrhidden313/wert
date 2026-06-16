@@ -1,8 +1,36 @@
 <script>
 	import { enhance } from '$app/forms';
+	import { onMount } from 'svelte';
+	
 	let { form } = $props();
 	
 	let loading = $state(false);
+	let timeLeft = $state('');
+	let timerInterval;
+
+	function updateTimer() {
+		if (!form?.unlockTime) return;
+		const now = Date.now();
+		const diff = form.unlockTime - now;
+		
+		if (diff <= 0) {
+			timeLeft = "You can try again now. Please refresh the page.";
+			clearInterval(timerInterval);
+			return;
+		}
+
+		const mins = Math.floor(diff / 60000);
+		const secs = Math.floor((diff % 60000) / 1000);
+		timeLeft = `${mins}m ${secs}s`;
+	}
+
+	$effect(() => {
+		if (form?.blocked && form?.unlockTime) {
+			updateTimer();
+			if (timerInterval) clearInterval(timerInterval);
+			timerInterval = setInterval(updateTimer, 1000);
+		}
+	});
 </script>
 
 <svelte:head>
@@ -35,7 +63,15 @@
 						Invalid email or password.
 					</div>
 				{/if}
-				{#if form?.error}
+				{#if form?.blocked}
+					<div class="bg-red-900/50 border border-red-500 text-red-200 p-4 rounded text-center">
+						<div class="font-bold text-lg mb-1">Access Suspended</div>
+						<div class="text-sm mb-2">Too many incorrect attempts detected.</div>
+						<div class="font-mono text-xl text-red-400 font-bold bg-black/30 py-2 rounded">
+							{timeLeft}
+						</div>
+					</div>
+				{:else if form?.error}
 					<div class="bg-red-900/50 border border-red-500 text-red-200 p-3 rounded text-sm text-center">
 						{form.error}
 					</div>
