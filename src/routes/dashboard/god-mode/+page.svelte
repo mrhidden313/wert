@@ -15,6 +15,11 @@
 	let storageData = $state(null);
 	let isStorageLoading = $state(false);
 
+	// Advanced Scanner State
+	let scanData = $state(null);
+	let isScanning = $state(false);
+	let scanError = $state(null);
+
 	// Sort State
 	let sortMode = $state('name'); // 'name', 'size', 'date'
 	let sortDirection = $state(1); // 1 = ascending, -1 = descending
@@ -76,22 +81,13 @@
 		if (['html', 'svelte', 'vue', 'jsx'].includes(ext)) return 'text-orange-400 group-hover:bg-orange-400/20';
 		if (['css', 'scss', 'tailwind'].includes(ext)) return 'text-blue-400 group-hover:bg-blue-400/20';
 		if (['rb', 'py', 'php'].includes(ext)) return 'text-red-400 group-hover:bg-red-400/20';
-		if (['png', 'jpg', 'jpeg', 'svg', 'gif'].includes(ext)) return 'text-fuchsia-400 group-hover:bg-fuchsia-400/20';
-		if (['mp4', 'mov', 'avi'].includes(ext)) return 'text-purple-400 group-hover:bg-purple-400/20';
+		if (['png', 'jpg', 'jpeg', 'svg', 'gif'].includes(ext)) return 'text-blue-500 group-hover:bg-blue-500/20';
+		if (['mp4', 'mov', 'avi'].includes(ext)) return 'text-yellow-500 group-hover:bg-yellow-500/20';
 		if (['zip', 'tar', 'gz'].includes(ext)) return 'text-amber-600 group-hover:bg-amber-600/20';
 		if (['sh', 'bash'].includes(ext)) return 'text-green-400 group-hover:bg-green-400/20';
+		if (['pdf', 'doc', 'docx', 'txt', 'csv'].includes(ext)) return 'text-red-500 group-hover:bg-red-500/20';
+		if (['mp3', 'wav', 'ogg'].includes(ext)) return 'text-emerald-500 group-hover:bg-emerald-500/20';
 		return 'text-gray-400 group-hover:bg-gray-400/20'; // default
-	}
-
-	function getBarColor(ext) {
-		if (['js', 'ts', 'json'].includes(ext)) return '#facc15';
-		if (['html', 'svelte', 'vue', 'jsx'].includes(ext)) return '#fb923c';
-		if (['css', 'scss', 'tailwind'].includes(ext)) return '#60a5fa';
-		if (['rb', 'py', 'php'].includes(ext)) return '#f87171';
-		if (['png', 'jpg', 'jpeg', 'svg', 'gif'].includes(ext)) return '#e879f9';
-		if (['mp4', 'mov', 'avi'].includes(ext)) return '#c084fc';
-		if (['zip', 'tar', 'gz'].includes(ext)) return '#d97706';
-		return '#9ca3af';
 	}
 
 	let sizeFetchQueue = [];
@@ -126,6 +122,7 @@
 		if (!vpsIp) return;
 		isLoading = true;
 		error = null;
+		scanData = null; // Reset scan data on navigate
 		
 		// Clear size queue since we are changing paths
 		sizeFetchQueue = [];
@@ -174,6 +171,40 @@
 		}
 	}
 
+	async function triggerDeepScan() {
+		if (!vpsIp || !currentPath) return;
+		isScanning = true;
+		scanError = null;
+		
+		try {
+			const res = await fetch(`/api/vps-proxy?ip=${encodeURIComponent(vpsIp)}&action=scan&path=${encodeURIComponent(currentPath)}`);
+			const data = await res.json();
+			if (!res.ok) throw new Error(data.error || 'Failed to scan directory');
+			
+			// Process categories into an array sorted by size
+			const categoriesArray = Object.entries(data.categories)
+				.map(([name, info]) => ({
+					name,
+					size: info.size,
+					count: info.count,
+					color: info.color,
+					percent: data.totalSize > 0 ? (info.size / data.totalSize) * 100 : 0
+				}))
+				.filter(cat => cat.size > 0)
+				.sort((a, b) => b.size - a.size);
+				
+			scanData = {
+				totalSize: data.totalSize,
+				totalFiles: data.totalFiles,
+				categories: categoriesArray
+			};
+		} catch (e) {
+			scanError = e.message;
+		} finally {
+			isScanning = false;
+		}
+	}
+
 	function handleConnect(e) {
 		e.preventDefault();
 		if (!vpsIp.trim()) return;
@@ -205,25 +236,15 @@
 		}
 	}
 
-	// Calculate current folder type breakdown
-	let folderBreakdown = $derived.by(() => {
-		let map = {};
-		let totalSize = 0;
-		files.forEach(f => {
-			if (!f.isDirectory && f.size) {
-				const ext = f.name.includes('.') ? f.name.split('.').pop().toLowerCase() : 'other';
-				if (!map[ext]) map[ext] = 0;
-				map[ext] += f.size;
-				totalSize += f.size;
-			}
-		});
-		
-		let items = Object.entries(map).map(([ext, size]) => ({
-			ext, size, percent: totalSize > 0 ? (size / totalSize) * 100 : 0
-		})).sort((a, b) => b.size - a.size);
-
-		return { items, totalSize };
-	});
+	function getCategoryIcon(name) {
+		if (name === 'Images') return 'M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z';
+		if (name === 'Videos') return 'M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z';
+		if (name === 'Documents') return 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z';
+		if (name === 'Audio') return 'M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3';
+		if (name === 'Code') return 'M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4';
+		if (name === 'Archives') return 'M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4';
+		return 'M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z';
+	}
 </script>
 
 <svelte:head>
@@ -261,63 +282,99 @@
 </div>
 
 {#if showStorage && isConnected}
-	<div class="mb-4 bg-gray-900 border border-gray-800 rounded-xl p-5 shadow-2xl relative overflow-hidden" in:slide>
-		<h2 class="text-white font-bold text-lg mb-4 flex items-center gap-2">
-			<svg class="w-5 h-5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
-			VPS Storage Dashboard
-		</h2>
-
-		<div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-			<!-- Overall VPS Disk -->
+	<div class="mb-4 bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-2xl relative overflow-hidden" in:slide>
+		<div class="flex items-center justify-between mb-6">
 			<div>
-				<h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Overall VPS Disk</h3>
-				{#if isStorageLoading}
-					<div class="h-24 flex items-center justify-center"><div class="w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div></div>
-				{:else if storageData}
-					<div class="flex justify-between items-end mb-2">
-						<div>
-							<span class="text-2xl font-black text-white">{storageData.usedSpace}</span>
-							<span class="text-sm text-gray-400"> / {storageData.totalSpace}</span>
-						</div>
-						<span class="text-sm font-bold {storageData.usePercent > 80 ? 'text-red-400' : 'text-emerald-400'}">{storageData.usePercent}% Used</span>
-					</div>
-					<div class="h-4 bg-gray-800 rounded-full overflow-hidden w-full border border-gray-700">
-						<div class="h-full bg-gradient-to-r {storageData.usePercent > 80 ? 'from-orange-500 to-red-500' : 'from-emerald-500 to-teal-500'}" style="width: {storageData.usePercent}%"></div>
-					</div>
-					<p class="text-xs text-gray-500 mt-2 text-right">Available: {storageData.availableSpace}</p>
-				{:else}
-					<p class="text-sm text-red-400">Could not load VPS disk info.</p>
-				{/if}
+				<h2 class="text-white font-bold text-xl flex items-center gap-2">
+					<svg class="w-6 h-6 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
+					Storage Overview
+				</h2>
+				<p class="text-sm text-gray-400 mt-1">Review heavy files to organize your space.</p>
 			</div>
 
-			<!-- Current Folder Breakdown -->
-			<div>
-				<h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Current Folder File Types</h3>
-				{#if folderBreakdown.items.length === 0}
-					<div class="h-16 flex items-center justify-center text-sm text-gray-600 bg-black/20 rounded-lg">No files to analyze.</div>
-				{:else}
-					<!-- Multi-color Bar -->
-					<div class="h-4 bg-gray-800 rounded-full overflow-hidden w-full border border-gray-700 flex mb-3">
-						{#each folderBreakdown.items as item}
-							<div class="h-full" style="width: {item.percent}%; background-color: {getBarColor(item.ext)};" title="{item.ext.toUpperCase()}: {formatBytes(item.size)}"></div>
-						{/each}
-					</div>
-					<!-- Legend -->
-					<div class="flex flex-wrap gap-x-4 gap-y-2">
-						{#each folderBreakdown.items.slice(0, 8) as item}
-							<div class="flex items-center gap-1.5 text-xs">
-								<span class="w-2.5 h-2.5 rounded-full" style="background-color: {getBarColor(item.ext)};"></span>
-								<span class="text-gray-300 font-medium">{item.ext.toUpperCase()}</span>
-								<span class="text-gray-500">({formatBytes(item.size)})</span>
-							</div>
-						{/each}
-						{#if folderBreakdown.items.length > 8}
-							<div class="text-xs text-gray-500 italic">+ {folderBreakdown.items.length - 8} more</div>
-						{/if}
+			<div class="text-right">
+				{#if isStorageLoading}
+					<div class="w-5 h-5 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin inline-block"></div>
+				{:else if storageData}
+					<p class="text-sm font-semibold text-gray-400">Total VPS Disk: <span class="text-white font-bold">{storageData.usedSpace}</span> / {storageData.totalSpace}</p>
+					<div class="flex items-center justify-end gap-2 mt-1">
+						<div class="w-32 h-2 bg-gray-800 rounded-full overflow-hidden">
+							<div class="h-full bg-emerald-500" style="width: {storageData.usePercent}%"></div>
+						</div>
+						<span class="text-xs text-gray-500">{storageData.usePercent}% Used</span>
 					</div>
 				{/if}
 			</div>
 		</div>
+
+		{#if !scanData && !isScanning}
+			<div class="bg-black/30 border border-gray-800 rounded-lg p-8 flex flex-col items-center justify-center text-center">
+				<div class="w-16 h-16 bg-blue-500/10 text-blue-400 rounded-full flex items-center justify-center mb-4">
+					<svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7"></path></svg>
+				</div>
+				<h3 class="text-lg font-bold text-white mb-2">Deep Storage Analysis</h3>
+				<p class="text-sm text-gray-400 mb-6 max-w-md">Click below to recursively scan the current folder (`{currentPath}`) and calculate exactly how much space each file type is using.</p>
+				
+				<button onclick={triggerDeepScan} class="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg shadow-lg transition-colors flex items-center gap-2">
+					<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 10l-2 1m0 0l-2-1m2 1v2.5M20 7l-2 1m2-1l-2-1m2 1v2.5M14 4l-2-1-2 1M4 7l2-1M4 7l2 1M4 7v2.5M12 21l-2-1m2 1l2-1m-2 1v-2.5M6 18l-2-1v-2.5M18 18l2-1v-2.5"></path></svg>
+					Analyze Deep Storage
+				</button>
+				{#if scanError}
+					<p class="text-sm text-red-400 mt-4">{scanError}</p>
+				{/if}
+			</div>
+		{:else if isScanning}
+			<div class="bg-black/30 border border-gray-800 rounded-lg p-12 flex flex-col items-center justify-center">
+				<div class="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+				<h3 class="text-white font-bold mb-1">Scanning directory...</h3>
+				<p class="text-sm text-gray-500">This may take a few seconds for very large folders.</p>
+			</div>
+		{:else if scanData}
+			<!-- Advanced Scanner Dashboard UI -->
+			
+			<!-- Category Cards -->
+			<div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4 mb-8">
+				{#each scanData.categories.slice(0, 5) as cat}
+					<div class="bg-gray-800/50 border border-gray-700/50 rounded-xl p-4 flex flex-col">
+						<div class="w-12 h-10 rounded-lg flex items-center justify-center mb-3" style="background-color: {cat.color}20; color: {cat.color};">
+							<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d={getCategoryIcon(cat.name)}></path></svg>
+						</div>
+						<div class="text-gray-300 font-bold mb-1">{cat.name}</div>
+						<div class="text-xs text-gray-500">{cat.count} files</div>
+					</div>
+				{/each}
+			</div>
+
+			<!-- Main Storage Overview Box -->
+			<div class="bg-black/40 border border-gray-800 rounded-xl p-6">
+				<div class="flex items-end justify-between mb-4">
+					<div>
+						<span class="text-3xl font-black text-white">{formatBytes(scanData.totalSize)}</span>
+						<span class="text-gray-400 ml-2">Total Analyzed</span>
+					</div>
+				</div>
+
+				<!-- Huge colorful progress bar -->
+				<div class="h-6 bg-gray-800 rounded-full overflow-hidden w-full flex mb-6 shadow-inner">
+					{#each scanData.categories as cat}
+						<div class="h-full hover:brightness-125 transition-all cursor-pointer" style="width: {cat.percent}%; background-color: {cat.color};" title="{cat.name}: {formatBytes(cat.size)}"></div>
+					{/each}
+				</div>
+
+				<!-- Detailed Legend -->
+				<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-y-3 gap-x-6">
+					{#each scanData.categories as cat}
+						<div class="flex items-center justify-between text-sm">
+							<div class="flex items-center gap-2">
+								<span class="w-3 h-3 rounded-full" style="background-color: {cat.color};"></span>
+								<span class="text-gray-300">{cat.name}</span>
+							</div>
+							<span class="font-mono text-gray-400">{formatBytes(cat.size, 1)}</span>
+						</div>
+					{/each}
+				</div>
+			</div>
+		{/if}
 	</div>
 {/if}
 
