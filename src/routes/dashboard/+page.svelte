@@ -27,9 +27,15 @@
 		<h1 class="text-2xl font-bold text-white">All Accounts</h1>
 		<p class="text-gray-400 mt-1">Manage workspaces, subscriptions, and access.</p>
 	</div>
-	<a href="/dashboard/create-account" class="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-medium rounded-lg transition-colors">
-		+ Build Account
-	</a>
+	<div class="flex items-center gap-3">
+		<a href="/dashboard/god-mode" class="px-4 py-2 bg-gradient-to-r from-red-600 to-purple-600 hover:from-red-500 hover:to-purple-500 text-white text-sm font-bold rounded-lg shadow-[0_0_15px_rgba(220,38,38,0.5)] transition-all flex items-center gap-2">
+			<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+			GOD MODE
+		</a>
+		<a href="/dashboard/create-account" class="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-medium rounded-lg transition-colors">
+			+ Build Account
+		</a>
+	</div>
 </div>
 
 {#if data.error}
