@@ -7,6 +7,7 @@
 	let error = $state(null);
 
 	let currentPath = $state('/');
+	let pathInput = $state('/');
 	let files = $state([]);
 
 	// Helper to format bytes
@@ -45,6 +46,7 @@
 
 			files = data.files || [];
 			currentPath = data.path; // update to absolute path returned by server
+			pathInput = data.path; // sync editable input
 			isConnected = true;
 		} catch (err) {
 			error = err.message;
@@ -150,11 +152,11 @@
 
 {:else}
 	<!-- Explorer View -->
-	<div class="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden shadow-2xl flex flex-col h-[650px]" in:fade>
+	<div class="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden shadow-2xl flex flex-col h-[85vh] mb-4" in:fade>
 		
 		<!-- Browser Header -->
 		<div class="bg-black/40 border-b border-gray-800 p-4 flex items-center justify-between gap-4 shrink-0">
-			<div class="flex items-center gap-2">
+			<div class="flex items-center gap-2 shrink-0">
 				<button onclick={goUp} disabled={currentPath === '/' || isLoading} class="p-2 bg-gray-800 rounded hover:bg-gray-700 disabled:opacity-30 transition-colors text-gray-300">
 					<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"></path></svg>
 				</button>
@@ -163,15 +165,24 @@
 				</button>
 			</div>
 
-			<div class="flex-1 bg-black/60 border border-gray-800 rounded-lg px-4 py-2 text-sm text-gray-300 font-mono flex items-center overflow-x-auto whitespace-nowrap hide-scrollbar">
-				<span class="text-red-500 font-bold mr-2">ROOT</span>
-				{#each currentPath.split('/').filter(Boolean) as segment, i}
-					<span class="text-gray-600 mx-2">/</span>
-					<span>{segment}</span>
-				{/each}
-			</div>
+			<form class="flex-1 flex" onsubmit={(e) => { e.preventDefault(); fetchDirectory(pathInput); }}>
+				<div class="flex-1 bg-black/60 border border-gray-800 rounded-lg flex items-center overflow-hidden focus-within:border-emerald-500 transition-colors">
+					<span class="text-emerald-500 font-bold px-4 shrink-0 bg-gray-900/50 h-full flex items-center border-r border-gray-800 text-sm">PATH</span>
+					<input 
+						type="text" 
+						bind:value={pathInput}
+						class="w-full bg-transparent px-4 py-2 text-sm text-gray-300 font-mono focus:outline-none"
+						spellcheck="false"
+						autocomplete="off"
+						placeholder="/var/www/..."
+					/>
+					<button type="submit" class="px-4 text-gray-400 hover:text-white transition-colors">
+						<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+					</button>
+				</div>
+			</form>
 
-			<div class="text-xs font-bold px-3 py-1.5 rounded-full bg-emerald-900/30 text-emerald-500 border border-emerald-900 flex items-center gap-2">
+			<div class="text-xs font-bold px-3 py-1.5 rounded-full bg-emerald-900/30 text-emerald-500 border border-emerald-900 flex items-center gap-2 shrink-0">
 				<div class="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
 				CONNECTED
 			</div>
