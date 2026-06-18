@@ -8,7 +8,7 @@ export async function GET({ url, cookies, fetch }) {
 	}
 
 	const vpsIp = url.searchParams.get('ip');
-	const action = url.searchParams.get('action'); // 'ls' or 'download'
+	const action = url.searchParams.get('action'); // 'ls', 'download', 'storage', 'size'
 	const path = url.searchParams.get('path') || '/';
 
 	if (!vpsIp || !action) {
