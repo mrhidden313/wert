@@ -124,5 +124,19 @@ export class ChatwootAPI {
 		return this._request('POST', `/platform/api/v1/accounts/${accountId}/account_users`, userPayload);
 	}
 
+	// === INBOX APIs ===
+
+	async getInboxes(accountId) {
+		const response = await this._request('GET', `/api/v1/accounts/${accountId}/inboxes`);
+		// Chatwoot returns { payload: [...] } for inboxes usually, but let's just return the whole thing
+		return response;
+	}
+
+	async toggleInboxGreeting(accountId, inboxId, isEnabled) {
+		return this._request('PATCH', `/api/v1/accounts/${accountId}/inboxes/${inboxId}`, {
+			greeting_enabled: isEnabled
+		});
+	}
+
 }
 

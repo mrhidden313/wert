@@ -102,7 +102,28 @@ export class FirebaseAdmin {
 	}
 
 	// -------------------------------------------------------------------------
-	// ADMIN PROFILES & NETWORTH (LEDGER)
+	// ADMIN COMMISSION LEDGER
+	// -------------------------------------------------------------------------
+
+	static async getAdminLedger() {
+		const docRef = db.collection('system').doc('admin_ledger');
+		const doc = await docRef.get();
+		if (!doc.exists) {
+			return { entries: [] };
+		}
+		return doc.data();
+	}
+
+	static async updateAdminLedger(data) {
+		const docRef = db.collection('system').doc('admin_ledger');
+		await docRef.set({
+			...data,
+			updatedAt: new Date().toISOString()
+		}, { merge: true });
+	}
+
+	// -------------------------------------------------------------------------
+	// ADMIN PROFILES & NETWORTH (OLD LEDGER)
 	// -------------------------------------------------------------------------
 
 	static async getAdminProfiles() {

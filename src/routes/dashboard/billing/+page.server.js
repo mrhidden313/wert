@@ -1,7 +1,7 @@
 import { ChatwootAPI } from '$lib/server/chatwoot';
 import { FirebaseAdmin } from '$lib/server/firebase';
 
-export async function load() {
+export async function load({ locals }) {
 	try {
 		const chatwoot = new ChatwootAPI();
 		const accountsResponse = await chatwoot.listAccounts();
@@ -76,12 +76,115 @@ export async function load() {
 		// Sort by highest due first
 		billingAccounts.sort((a, b) => b.total_due - a.total_due);
 
+		// Admin Ledger specific logic
+		const adminEmail = locals.adminEmail || 'Unknown';
+		const isMasterAdmin = adminEmail === 'mrhidden313@gmail.com' || adminEmail.toLowerCase().includes('salar');
+		const adminLedger = await FirebaseAdmin.getAdminLedger();
+
 		return {
 			billingAccounts,
-			analytics
+			analytics,
+			adminLedger: adminLedger.entries || [],
+			isMasterAdmin
 		};
 	} catch (err) {
 		console.error("Billing Load Error:", err);
-		return { billingAccounts: [], analytics: {}, error: 'Failed to load billing data' };
+		return { billingAccounts: [], analytics: {}, adminLedger: [], isMasterAdmin: false, error: 'Failed to load billing data' };
 	}
 }
+
+export const actions = {
+	addCommission: async ({ request, locals }) => {
+		const data = await request.formData();
+		const adminName = data.get('adminName');
+		const title = data.get('title');
+		const amount = parseInt(data.get('amount') || '0', 10);
+		
+		const currentAdminEmail = locals.adminEmail || 'Unknown';
+		const isMasterAdmin = currentAdminEmail === 'mrhidden313@gmail.com' || currentAdminEmail.toLowerCase().includes('salar');
+		if (!isMasterAdmin) return { error: 'Unauthorized' };
+
+		try {
+			const ledgerData = await FirebaseAdmin.getAdminLedger();
+			const entries = ledgerData.entries || [];
+			
+			entries.push({
+				id: Date.now().toString(),
+				adminName,
+				title,
+				totalAmount: amount,
+				paidAmount: 0,
+				remainingAmount: amount,
+				status: 'pending',
+				createdAt: new Date().toISOString(),
+				history: []
+			});
+			
+			await FirebaseAdmin.updateAdminLedger({ entries });
+			await FirebaseAdmin.addAuditLog(currentAdminEmail, 'Add Commission', `Added ${amount} commission for ${adminName}`);
+			return { success: true };
+		} catch (err) {
+			console.error(err);
+			return { error: 'Failed to add commission' };
+		}
+	},
+
+	payCommission: async ({ request, locals }) => {
+		const data = await request.formData();
+		const entryId = data.get('entryId');
+		const amountToPay = parseInt(data.get('amount') || '0', 10);
+		
+		const currentAdminEmail = locals.adminEmail || 'Unknown';
+		const isMasterAdmin = currentAdminEmail === 'mrhidden313@gmail.com' || currentAdminEmail.toLowerCase().includes('salar');
+		if (!isMasterAdmin) return { error: 'Unauthorized' };
+
+		try {
+			const ledgerData = await FirebaseAdmin.getAdminLedger();
+			const entries = ledgerData.entries || [];
+			const entryIdx = entries.findIndex(e => e.id === entryId);
+			
+			if (entryIdx === -1) return { error: 'Entry not found' };
+			
+			const entry = entries[entryIdx];
+			const actualPayment = Math.min(amountToPay, entry.remainingAmount);
+			
+			entry.paidAmount += actualPayment;
+			entry.remainingAmount -= actualPayment;
+			if (entry.remainingAmount <= 0) entry.status = 'paid';
+			
+			entry.history.push({
+				date: new Date().toISOString(),
+				amount: actualPayment,
+				note: `Paid ${actualPayment}`
+			});
+			
+			await FirebaseAdmin.updateAdminLedger({ entries });
+			await FirebaseAdmin.addAuditLog(currentAdminEmail, 'Pay Commission', `Paid ${actualPayment} to ${entry.adminName}`);
+			return { success: true };
+		} catch (err) {
+			console.error(err);
+			return { error: 'Failed to pay commission' };
+		}
+	},
+
+	deleteCommission: async ({ request, locals }) => {
+		const data = await request.formData();
+		const entryId = data.get('entryId');
+		
+		const currentAdminEmail = locals.adminEmail || 'Unknown';
+		const isMasterAdmin = currentAdminEmail === 'mrhidden313@gmail.com' || currentAdminEmail.toLowerCase().includes('salar');
+		if (!isMasterAdmin) return { error: 'Unauthorized' };
+
+		try {
+			const ledgerData = await FirebaseAdmin.getAdminLedger();
+			const entries = (ledgerData.entries || []).filter(e => e.id !== entryId);
+			
+			await FirebaseAdmin.updateAdminLedger({ entries });
+			await FirebaseAdmin.addAuditLog(currentAdminEmail, 'Delete Commission', `Deleted commission entry ${entryId}`);
+			return { success: true };
+		} catch (err) {
+			console.error(err);
+			return { error: 'Failed to delete commission' };
+		}
+	}
+};
