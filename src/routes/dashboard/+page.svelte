@@ -103,10 +103,16 @@
 						<td class="px-6 py-4 whitespace-nowrap">
 							<div class="text-sm text-gray-300">{account.linkedEmail}</div>
 						</td>
-						<td class="px-6 py-4 whitespace-nowrap">
-							<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-emerald-900/30 text-emerald-400 border border-emerald-500/20">
-								{account.planType}
-							</span>
+						<td class="px-6 py-4 whitespace-nowrap" onclick={(e) => e.stopPropagation()}>
+							<form method="POST" action="?/updatePlan" use:enhance class="m-0">
+								<input type="hidden" name="accountId" value={account.id} />
+								<select name="planType" onchange={(e) => e.target.form.requestSubmit()} class="bg-emerald-900/30 border border-emerald-500/30 text-emerald-400 text-xs font-semibold rounded-lg focus:ring-emerald-500 focus:border-emerald-500 block px-2 py-1 cursor-pointer">
+									<option value="Trial" selected={account.planType === 'Trial' || account.planType === 'Unknown'}>Trial</option>
+									<option value="Basic" selected={account.planType === 'Basic'}>Basic</option>
+									<option value="Pro" selected={account.planType === 'Pro'}>Pro</option>
+									<option value="Enterprise" selected={account.planType === 'Enterprise'}>Enterprise</option>
+								</select>
+							</form>
 						</td>
 						<td class="px-6 py-4 whitespace-nowrap">
 							<div class="text-sm text-gray-300 flex items-center gap-2">
@@ -122,6 +128,13 @@
 										e.stopPropagation();
 										const days = prompt("Enter days to add:", "30");
 										if (!days || isNaN(days)) return;
+
+										let planTypeToUpdate = account.planType;
+										if (parseInt(days) >= 3 && (account.planType === 'Trial' || account.planType === 'Unknown')) {
+											const selectedPlan = prompt("Trial is over! Enter new Plan Type (Basic, Pro, Enterprise):", "Basic");
+											if (selectedPlan) planTypeToUpdate = selectedPlan;
+										}
+
 										const note = prompt("Enter note/reason (optional):", "Monthly renewal");
 										
 										const form = document.createElement('form');
@@ -139,6 +152,7 @@
 										addInput('accountId', account.id);
 										addInput('days', days);
 										addInput('note', note || '');
+										addInput('planType', planTypeToUpdate);
 										
 										document.body.appendChild(form);
 										form.submit();

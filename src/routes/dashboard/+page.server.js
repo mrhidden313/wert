@@ -97,6 +97,7 @@ export const actions = {
 		const accountId = data.get('accountId');
 		const daysToAdd = parseInt(data.get('days') || '30', 10);
 		const note = data.get('note') || '';
+		const planType = data.get('planType');
 		const adminEmail = locals.adminEmail || 'Unknown';
 
 		try {
@@ -115,17 +116,39 @@ export const actions = {
 			const { FieldValue } = await import('firebase-admin/firestore');
 			const { db } = await import('$lib/server/firebase');
 			const docRef = db.collection('subscriptions').doc(String(accountId));
-			await docRef.set({
+			
+			const updateData = {
 				daysRemaining: newDays,
 				history: FieldValue.arrayUnion(historyEntry),
 				updatedAt: new Date().toISOString()
-			}, { merge: true });
+			};
+			if (planType) {
+				updateData.planType = planType;
+			}
+			
+			await docRef.set(updateData, { merge: true });
 
 			await FirebaseAdmin.addAuditLog(adminEmail, 'Refresh Days', `Added ${daysToAdd} days to account ${accountId}`);
 			return { success: true };
 		} catch (err) {
 			console.error("Failed to refresh days", err);
 			return fail(500, { error: 'Failed to refresh days' });
+		}
+	},
+
+	updatePlan: async ({ request, locals }) => {
+		const data = await request.formData();
+		const accountId = data.get('accountId');
+		const planType = data.get('planType');
+		const adminEmail = locals.adminEmail || 'Unknown';
+		
+		try {
+			await FirebaseAdmin.updateSubscription(accountId, { planType });
+			await FirebaseAdmin.addAuditLog(adminEmail, 'Update Plan', `Changed plan to ${planType} for account ${accountId}`);
+			return { success: true };
+		} catch (err) {
+			console.error("Failed to update plan", err);
+			return fail(500, { error: 'Failed to update plan' });
 		}
 	},
 
