@@ -96,15 +96,46 @@
 							</span>
 						</td>
 						<td class="px-6 py-4 whitespace-nowrap">
-							<div class="text-sm text-gray-300">
+							<div class="text-sm text-gray-300 flex items-center gap-2">
 								{#if account.daysRemaining > 0}
-									{account.daysRemaining} days left
+									<span>{account.daysRemaining} days left</span>
 								{:else}
 									<span class="text-red-400 font-medium">Expired</span>
 								{/if}
+								<button 
+									class="text-blue-400 hover:text-blue-300 ml-1 p-1 rounded-full hover:bg-gray-800"
+									title="Refresh Days"
+									onclick={(e) => {
+										e.stopPropagation();
+										const days = prompt("Enter days to add:", "30");
+										if (!days || isNaN(days)) return;
+										const note = prompt("Enter note/reason (optional):", "Monthly renewal");
+										
+										const form = document.createElement('form');
+										form.method = 'POST';
+										form.action = '?/refreshDays';
+										
+										const addInput = (name, val) => {
+											const i = document.createElement('input');
+											i.type = 'hidden';
+											i.name = name;
+											i.value = val;
+											form.appendChild(i);
+										};
+										
+										addInput('accountId', account.id);
+										addInput('days', days);
+										addInput('note', note || '');
+										
+										document.body.appendChild(form);
+										form.submit();
+									}}
+								>
+									<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+								</button>
 							</div>
 						</td>
-						<td class="px-6 py-4 whitespace-nowrap">
+						<td class="px-6 py-4 whitespace-nowrap flex flex-col gap-1 items-start">
 							{#if account.status === 'active'}
 								<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-900/30 text-blue-400 border border-blue-500/20">
 									Active
@@ -112,6 +143,12 @@
 							{:else}
 								<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-900/30 text-red-400 border border-red-500/20">
 									Suspended
+								</span>
+							{/if}
+							
+							{#if account.freeze}
+								<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-orange-900/30 text-orange-400 border border-orange-500/20 mt-1">
+									App Frozen
 								</span>
 							{/if}
 						</td>
@@ -145,6 +182,18 @@
 									</button>
 								</form>
 							{/if}
+
+							<!-- Freeze App Action -->
+							<form method="POST" action="?/toggleFreeze" use:enhance={() => {
+								loadingAction = `freeze-${account.id}`;
+								return async ({ update }) => { await update(); loadingAction = null; };
+							}}>
+								<input type="hidden" name="accountId" value={account.id} />
+								<input type="hidden" name="freeze" value={account.freeze ? 'false' : 'true'} />
+								<button type="submit" disabled={loadingAction} class="{account.freeze ? 'text-emerald-400 hover:text-emerald-300' : 'text-orange-500 hover:text-orange-400'} disabled:opacity-50 ml-2 border-l border-gray-700 pl-3">
+									{account.freeze ? 'Unfreeze' : 'Freeze'}
+								</button>
+							</form>
 
 							<!-- Destroy Action -->
 							<form method="POST" action="?/destroy" use:enhance={() => {

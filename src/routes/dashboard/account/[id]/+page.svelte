@@ -1,6 +1,43 @@
 <script>
 	import { enhance } from '$app/forms';
 	let { data, form } = $props();
+
+	function promptPayment(type, feeId, maxAmount) {
+		const amount = prompt(`Enter amount to pay (Max: ${maxAmount}):`, maxAmount);
+		if (!amount || isNaN(amount) || amount <= 0) return;
+		const bankType = prompt("Payment Method (e.g. Bank, Cash, Easypaisa):", "Cash");
+		if (bankType === null) return;
+		const txId = prompt("Transaction ID (optional):", "");
+		const notes = prompt("Any notes (optional):", "");
+
+		submitAction('?/recordPayment', { type, feeId, amount, bankType, txId, notes });
+	}
+
+	function promptAddMonthlyFee() {
+		const amount = prompt("Enter Monthly Fee Amount:", data.account.monthly_fee_amount || "5000");
+		if (!amount || isNaN(amount)) return;
+		const month = prompt("Enter Label/Month:", new Date().toLocaleString('default', { month: 'short', year: 'numeric' }));
+		if (!month) return;
+
+		submitAction('?/addPendingFee', { amount, month });
+	}
+
+	function submitAction(actionUrl, payload) {
+		const f = document.createElement('form');
+		f.method = 'POST';
+		f.action = actionUrl;
+		Object.entries(payload).forEach(([k, v]) => {
+			if (v !== undefined && v !== null) {
+				const i = document.createElement('input');
+				i.type = 'hidden';
+				i.name = k;
+				i.value = v;
+				f.appendChild(i);
+			}
+		});
+		document.body.appendChild(f);
+		f.submit();
+	}
 </script>
 
 <svelte:head>
@@ -141,6 +178,99 @@
 					</form>
 					<p class="text-xs text-gray-500 mt-2">Instantly wipe all access tokens. The user will be forcefully kicked out of all active sessions.</p>
 				</div>
+			</div>
+		</div>
+
+		<!-- Billing Ledger -->
+		<div class="bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-sm md:col-span-2">
+			<h2 class="text-lg font-semibold text-white mb-4 border-b border-gray-800 pb-2">Billing Ledger</h2>
+			
+			<div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+				<!-- Startup Fee -->
+				<div>
+					<h3 class="text-sm font-medium text-gray-400 uppercase mb-3">Startup Fee</h3>
+					{#if data.account.startup_fee}
+						<div class="mb-4">
+							<div class="flex justify-between text-sm mb-1">
+								<span class="text-white">Total: Rs {data.account.startup_fee.amount}</span>
+								<span class="text-emerald-400">Paid: Rs {data.account.startup_fee.paid}</span>
+								<span class="text-orange-400">Remaining: Rs {data.account.startup_fee.remaining}</span>
+							</div>
+							<div class="w-full bg-gray-800 rounded-full h-2">
+								<div class="bg-emerald-500 h-2 rounded-full" style="width: {(data.account.startup_fee.paid / data.account.startup_fee.amount) * 100}%"></div>
+							</div>
+						</div>
+						
+						{#if data.account.startup_fee.remaining > 0}
+							<button 
+								class="px-4 py-2 bg-emerald-600/20 text-emerald-500 hover:bg-emerald-600/30 border border-emerald-600/30 rounded-lg text-sm font-medium transition-colors"
+								onclick={() => promptPayment('startup', null, data.account.startup_fee.remaining)}
+							>
+								Pay Remaining
+							</button>
+						{/if}
+					{:else}
+						<form method="POST" action="?/setStartupFee" use:enhance class="flex items-center space-x-3">
+							<input type="number" name="amount" placeholder="Amount (e.g. 5000)" required class="flex-1 bg-gray-950 border border-gray-800 rounded-lg px-3 py-2 text-sm text-white focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500" />
+							<button type="submit" class="px-4 py-2 bg-blue-600/20 text-blue-500 hover:bg-blue-600/30 border border-blue-600/30 rounded-lg text-sm font-medium transition-colors">Set Fee</button>
+						</form>
+					{/if}
+				</div>
+
+				<!-- Monthly Pending Fees -->
+				<div>
+					<h3 class="text-sm font-medium text-gray-400 uppercase mb-3 flex justify-between items-center">
+						Pending Monthly Fees
+						<button 
+							class="text-xs text-blue-400 hover:text-blue-300"
+							onclick={() => promptAddMonthlyFee()}
+						>
+							+ Add Invoice
+						</button>
+					</h3>
+					
+					<div class="space-y-3 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
+						{#each data.account.pending_fees.filter(f => f.remaining > 0) as fee}
+							<div class="flex justify-between items-center p-3 bg-gray-800/50 rounded-lg border border-gray-700">
+								<div>
+									<div class="text-sm text-white font-medium">{fee.month_label}</div>
+									<div class="text-xs text-orange-400">Remaining: Rs {fee.remaining} (Total: {fee.amount})</div>
+								</div>
+								<button 
+									class="px-3 py-1 bg-emerald-600/20 text-emerald-500 hover:bg-emerald-600/30 border border-emerald-600/30 rounded-lg text-xs font-medium transition-colors"
+									onclick={() => promptPayment('monthly', fee.id, fee.remaining)}
+								>
+									Pay
+								</button>
+							</div>
+						{/each}
+						{#if data.account.pending_fees.filter(f => f.remaining > 0).length === 0}
+							<div class="text-sm text-gray-500 italic">No pending fees.</div>
+						{/if}
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<!-- History Timeline -->
+		<div class="bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-sm md:col-span-2">
+			<h2 class="text-lg font-semibold text-white mb-4 border-b border-gray-800 pb-2">Activity History</h2>
+			<div class="space-y-4 max-h-80 overflow-y-auto pr-2 custom-scrollbar">
+				{#each [...data.account.history].reverse() as item}
+					<div class="flex items-start gap-4">
+						<div class="w-2 h-2 mt-2 rounded-full {item.type === 'payment' ? 'bg-emerald-500' : 'bg-blue-500'}"></div>
+						<div>
+							<div class="text-sm text-white font-medium">{item.action}</div>
+							<div class="text-xs text-gray-400">{new Date(item.date).toLocaleString()} • {item.admin}</div>
+							{#if item.notes}
+								<div class="text-xs text-gray-500 mt-1 italic">Notes: {item.notes}</div>
+							{/if}
+						</div>
+					</div>
+				{/each}
+				{#if data.account.history.length === 0}
+					<div class="text-sm text-gray-500 italic">No history recorded yet.</div>
+				{/if}
 			</div>
 		</div>
 	</div>

@@ -25,16 +25,16 @@ export class ChatwootAPI {
 		}
 
 		const response = await fetch(url, options);
-		
+
 		if (!response.ok) {
 			let errorText = await response.text();
 			console.error(`Chatwoot API Error [${method} ${endpoint}]:`, response.status, errorText);
 			throw new Error(`Chatwoot API failed: ${response.status} - ${errorText.substring(0, 100)}`);
 		}
-		
+
 		// Some endpoints return 204 No Content
 		if (response.status === 204) return true;
-		
+
 		return await response.json();
 	}
 
@@ -55,13 +55,13 @@ export class ChatwootAPI {
 		}
 
 		const response = await fetch(url, options);
-		
+
 		if (!response.ok) {
 			let errorText = await response.text();
 			console.error(`Chatwoot Bridge Error [${method} ${endpoint}]:`, response.status, errorText);
 			throw new Error(`Chatwoot Bridge failed: ${response.status} - ${errorText.substring(0, 100)}`);
 		}
-		
+
 		return await response.json();
 	}
 
@@ -106,20 +106,20 @@ export class ChatwootAPI {
 	}
 
 	async changePassword(accountId, newPassword) {
-		return this._bridgeRequest('POST', '/super_admin/bridge/change_password', { 
-			account_id: accountId, 
-			new_password: newPassword 
+		return this._bridgeRequest('POST', '/super_admin/bridge/change_password', {
+			account_id: accountId,
+			new_password: newPassword
 		});
 	}
 
 	async forceLogout(accountId) {
-		return this._bridgeRequest('POST', '/super_admin/bridge/force_logout', { 
+		return this._bridgeRequest('POST', '/super_admin/bridge/force_logout', {
 			account_id: accountId
 		});
 	}
 
 	// === PLATFORM API: USERS ===
-	
+
 	async createOrUpdateUser(accountId, userPayload) {
 		return this._request('POST', `/platform/api/v1/accounts/${accountId}/account_users`, userPayload);
 	}

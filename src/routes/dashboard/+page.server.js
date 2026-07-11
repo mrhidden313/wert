@@ -42,6 +42,7 @@ export async function load({ locals }) {
 				status: acc.status || 'active', // active or suspended
 				planType: sub.planType || 'Unknown',
 				daysRemaining: sub.daysRemaining || 0,
+				freeze: sub.freeze || false,
 				linkedEmail: acc.admin_email || sub.linkedEmail || 'N/A' // Use Chatwoot admin email if available
 			};
 		});
@@ -83,6 +84,55 @@ export const actions = {
 			return { success: true };
 		} catch (err) {
 			return fail(500, { error: 'Failed to renew account' });
+		}
+	},
+
+	refreshDays: async ({ request }) => {
+		const data = await request.formData();
+		const accountId = data.get('accountId');
+		const daysToAdd = parseInt(data.get('days') || '30', 10);
+		const note = data.get('note') || '';
+
+		try {
+			const sub = await FirebaseAdmin.getSubscription(accountId);
+			const currentDays = sub?.daysRemaining || 0;
+			const newDays = currentDays + daysToAdd;
+
+			const historyEntry = {
+				date: new Date().toISOString(),
+				action: `Added ${daysToAdd} days`,
+				admin: 'Admin',
+				notes: note,
+				type: 'days_added'
+			};
+
+			const { FieldValue } = await import('firebase-admin/firestore');
+			const { db } = await import('$lib/server/firebase');
+			const docRef = db.collection('subscriptions').doc(String(accountId));
+			await docRef.set({
+				daysRemaining: newDays,
+				history: FieldValue.arrayUnion(historyEntry),
+				updatedAt: new Date().toISOString()
+			}, { merge: true });
+
+			return { success: true };
+		} catch (err) {
+			console.error("Failed to refresh days", err);
+			return fail(500, { error: 'Failed to refresh days' });
+		}
+	},
+
+	toggleFreeze: async ({ request }) => {
+		const data = await request.formData();
+		const accountId = data.get('accountId');
+		const freeze = data.get('freeze') === 'true';
+
+		try {
+			await FirebaseAdmin.updateSubscription(accountId, { freeze });
+			return { success: true };
+		} catch (err) {
+			console.error("Failed to toggle freeze", err);
+			return fail(500, { error: 'Failed to freeze/unfreeze' });
 		}
 	},
 

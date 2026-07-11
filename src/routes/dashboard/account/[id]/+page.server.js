@@ -47,7 +47,11 @@ export async function load({ params }) {
 				created_at: account.created_at,
 				planType: subscription.planType || 'Unknown',
 				daysRemaining: subscription.daysRemaining || 0,
-				phoneNumber: subscription.phoneNumber || 'N/A'
+				phoneNumber: subscription.phoneNumber || 'N/A',
+				startup_fee: subscription.startup_fee || null,
+				monthly_fee_amount: subscription.monthly_fee_amount || 0,
+				pending_fees: subscription.pending_fees || [],
+				history: subscription.history || []
 			}
 		};
 
@@ -137,6 +141,92 @@ export const actions = {
 		} catch (error) {
 			console.error('Edit subscription error:', error);
 			return fail(500, { error: 'Internal server error while updating subscription' });
+		}
+	},
+
+	setStartupFee: async ({ request, params }) => {
+		const data = await request.formData();
+		const amount = parseInt(data.get('amount') || '0', 10);
+		try {
+			await FirebaseAdmin.updateSubscription(params.id, {
+				startup_fee: { amount, paid: 0, remaining: amount }
+			});
+			return { success: true, message: 'Startup fee set!' };
+		} catch (err) {
+			return fail(500, { error: 'Failed to set startup fee' });
+		}
+	},
+	
+	addPendingFee: async ({ request, params }) => {
+		const data = await request.formData();
+		const amount = parseInt(data.get('amount') || '0', 10);
+		const month = data.get('month') || new Date().toLocaleString('default', { month: 'short', year: 'numeric' });
+		try {
+			const { FieldValue } = await import('firebase-admin/firestore');
+			const { db } = await import('$lib/server/firebase');
+			const docRef = db.collection('subscriptions').doc(String(params.id));
+			
+			const newFee = { id: Date.now().toString(), type: 'monthly', amount, remaining: amount, paid: false, month_label: month };
+			await docRef.set({ pending_fees: FieldValue.arrayUnion(newFee) }, { merge: true });
+			
+			return { success: true, message: 'Added pending monthly fee!' };
+		} catch (err) {
+			return fail(500, { error: 'Failed to add monthly fee' });
+		}
+	},
+
+	recordPayment: async ({ request, params }) => {
+		const data = await request.formData();
+		const amount = parseInt(data.get('amount') || '0', 10);
+		const type = data.get('type'); // 'startup' or 'monthly'
+		const feeId = data.get('feeId'); 
+		const bankType = data.get('bankType') || 'Cash';
+		const txId = data.get('txId') || '';
+		const notes = data.get('notes') || '';
+		
+		try {
+			const sub = await FirebaseAdmin.getSubscription(params.id);
+			if (!sub) return fail(404, { error: 'Not found' });
+			
+			const { FieldValue } = await import('firebase-admin/firestore');
+			const { db } = await import('$lib/server/firebase');
+			const docRef = db.collection('subscriptions').doc(String(params.id));
+			
+			let updateData = {};
+			
+			if (type === 'startup' && sub.startup_fee) {
+				const sf = sub.startup_fee;
+				const newPaid = sf.paid + amount;
+				const newRemaining = Math.max(0, sf.amount - newPaid);
+				updateData.startup_fee = { amount: sf.amount, paid: newPaid, remaining: newRemaining };
+			} else if (type === 'monthly' && sub.pending_fees) {
+				const pFees = [...sub.pending_fees];
+				const idx = pFees.findIndex(f => f.id === feeId);
+				if (idx > -1) {
+					pFees[idx].remaining = Math.max(0, pFees[idx].remaining - amount);
+					if (pFees[idx].remaining === 0) pFees[idx].paid = true;
+					updateData.pending_fees = pFees;
+				}
+			}
+			
+			const historyEntry = {
+				date: new Date().toISOString(),
+				action: `Paid ${amount} towards ${type}`,
+				admin: 'Admin',
+				notes: `${bankType} ${txId ? 'Tx: '+txId : ''} ${notes}`.trim(),
+				type: 'payment',
+				amount_paid: amount
+			};
+			
+			updateData.history = FieldValue.arrayUnion(historyEntry);
+			updateData.updatedAt = new Date().toISOString();
+			
+			await docRef.set(updateData, { merge: true });
+			return { success: true, message: 'Payment recorded!' };
+			
+		} catch (err) {
+			console.error(err);
+			return fail(500, { error: 'Failed to record payment' });
 		}
 	}
 };
