@@ -19,6 +19,14 @@ export async function handle({ event, resolve }) {
 
 		// Pass the token to the locals so endpoints can use it
 		event.locals.adminToken = validPayload;
+		
+		// Extract email from payload: session|email|timestamp
+		const parts = validPayload.split('|');
+		if (parts.length >= 2) {
+			event.locals.adminEmail = parts[1];
+		} else {
+			event.locals.adminEmail = 'Unknown Admin';
+		}
 	}
 
 	if (event.url.pathname === '/') {

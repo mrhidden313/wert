@@ -79,6 +79,126 @@ export class FirebaseAdmin {
 	static async deleteSubscription(docId) {
 		await db.collection('subscriptions').doc(String(docId)).delete();
 	}
+
+	// -------------------------------------------------------------------------
+	// GLOBAL AUDIT LOGS
+	// -------------------------------------------------------------------------
+
+	static async addAuditLog(adminEmail, action, details) {
+		const docRef = db.collection('global_audit_logs').doc();
+		await docRef.set({
+			adminEmail,
+			action,
+			details,
+			timestamp: new Date().toISOString()
+		});
+	}
+
+	static async getAuditLogs() {
+		const snapshot = await db.collection('global_audit_logs').orderBy('timestamp', 'desc').limit(200).get();
+		const logs = [];
+		snapshot.forEach(doc => logs.push({ id: doc.id, ...doc.data() }));
+		return logs;
+	}
+
+	// -------------------------------------------------------------------------
+	// ADMIN PROFILES & NETWORTH (LEDGER)
+	// -------------------------------------------------------------------------
+
+	static async getAdminProfiles() {
+		const snapshot = await db.collection('admin_profiles').get();
+		const profiles = {};
+		snapshot.forEach(doc => {
+			profiles[doc.id] = { id: doc.id, ...doc.data() };
+		});
+		return profiles;
+	}
+
+	static async getAdminProfile(adminEmail) {
+		const docRef = db.collection('admin_profiles').doc(adminEmail);
+		const doc = await docRef.get();
+		if (!doc.exists) {
+			// Initialize if doesn't exist
+			await docRef.set({ email: adminEmail, networth: 0, history: [] });
+			return { email: adminEmail, networth: 0, history: [] };
+		}
+		return { id: doc.id, ...doc.data() };
+	}
+
+	static async updateAdminNetworth(adminEmail, amount, type = 'add', note = '', addedBy = 'System', txId = '') {
+		const docRef = db.collection('admin_profiles').doc(adminEmail);
+		const { FieldValue } = await import('firebase-admin/firestore');
+		
+		const doc = await docRef.get();
+		const current = doc.exists ? (doc.data().networth || 0) : 0;
+		const newNetworth = type === 'add' ? current + amount : Math.max(0, current - amount);
+
+		const historyEntry = {
+			id: Date.now().toString(),
+			date: new Date().toISOString(),
+			amount: type === 'add' ? amount : -amount,
+			note,
+			addedBy,
+			txId,
+			type
+		};
+
+		await docRef.set({
+			email: adminEmail,
+			networth: newNetworth,
+			history: FieldValue.arrayUnion(historyEntry),
+			updatedAt: new Date().toISOString()
+		}, { merge: true });
+	}
+
+	// -------------------------------------------------------------------------
+	// PENDING APPROVALS
+	// -------------------------------------------------------------------------
+
+	static async getPendingApprovals() {
+		const snapshot = await db.collection('pending_approvals').orderBy('timestamp', 'desc').get();
+		const approvals = [];
+		snapshot.forEach(doc => approvals.push({ id: doc.id, ...doc.data() }));
+		return approvals;
+	}
+
+	static async addPendingApproval(senderEmail, receiverEmail, amount, note, txId = '') {
+		const docRef = db.collection('pending_approvals').doc();
+		await docRef.set({
+			senderEmail,
+			receiverEmail,
+			amount,
+			note,
+			txId,
+			timestamp: new Date().toISOString()
+		});
+	}
+
+	static async deletePendingApproval(id) {
+		await db.collection('pending_approvals').doc(id).delete();
+	}
+
+	// -------------------------------------------------------------------------
+	// GLOBAL EXPENSES (APPLICATION FEES)
+	// -------------------------------------------------------------------------
+
+	static async getExpenses() {
+		const snapshot = await db.collection('global_expenses').orderBy('timestamp', 'desc').get();
+		const expenses = [];
+		snapshot.forEach(doc => expenses.push({ id: doc.id, ...doc.data() }));
+		return expenses;
+	}
+
+	static async addExpense(adminEmail, amount, note, category = 'VPS') {
+		const docRef = db.collection('global_expenses').doc();
+		await docRef.set({
+			adminEmail,
+			amount,
+			note,
+			category,
+			timestamp: new Date().toISOString()
+		});
+	}
 }
 
 export { db };

@@ -58,7 +58,7 @@ export const actions = {
 		}
 
 		const data = await request.formData();
-		const email = data.get('email');
+		const email = data.get('email')?.toLowerCase()?.trim();
 		const password = data.get('password');
 
 		if (!email || !password) {
@@ -66,15 +66,19 @@ export const actions = {
 		}
 
 		// Use Environment Variables for Super Admin authentication
-		const expectedEmail = env.ADMIN_EMAIL;
+		const superAdminEmail = env.ADMIN_EMAIL || 'mrhiddenhacker313@gmail.com';
 		const expectedPassword = env.ADMIN_PASSWORD;
 
-		if (!expectedEmail || !expectedPassword) {
-			console.error("ADMIN_EMAIL or ADMIN_PASSWORD is not set in environment variables!");
+		// Allowed admins
+		const allowedAdmins = [superAdminEmail, 'uzairadmin@gmail.com'];
+
+		if (!expectedPassword) {
+			console.error("ADMIN_PASSWORD is not set in environment variables!");
 			return fail(500, { email, error: "Server Configuration Error: Admin credentials not set in Vercel." });
 		}
 
-		if (email !== expectedEmail || password !== expectedPassword) {
+		// Verify email and password
+		if (!allowedAdmins.includes(email) || password !== expectedPassword) {
 			recordFailedAttempt(ip);
 			return fail(401, { email, incorrect: true, error: "Access Denied: Invalid Email or Password." });
 		}
@@ -83,7 +87,7 @@ export const actions = {
 		clearAttempts(ip);
 
 		// If credentials match, generate a secure, cryptographically signed session token
-		const payload = `session|${expectedEmail}|${Date.now()}`;
+		const payload = `session|${email}|${Date.now()}`;
 		const sessionToken = signSession(payload);
 
 		cookies.set('admin_session', sessionToken, {

@@ -61,11 +61,13 @@ export const actions = {
 	suspend: async ({ request, locals }) => {
 		const data = await request.formData();
 		const accountId = data.get('accountId');
+		const adminEmail = locals.adminEmail || 'Unknown';
 		
 		try {
 			const chatwoot = new ChatwootAPI();
 			await chatwoot.suspendAccount(accountId);
 			await FirebaseAdmin.updateSubscription(accountId, { status: 'suspended', daysRemaining: 0 });
+			await FirebaseAdmin.addAuditLog(adminEmail, 'Suspend Account', `Suspended account ${accountId} from main dashboard`);
 			return { success: true };
 		} catch (err) {
 			return fail(500, { error: 'Failed to suspend account' });
@@ -77,22 +79,25 @@ export const actions = {
 		const accountId = data.get('accountId');
 		const planType = data.get('planType');
 		const days = parseInt(data.get('daysRemaining') || '30', 10);
+		const adminEmail = locals.adminEmail || 'Unknown';
 		
 		try {
 			const chatwoot = new ChatwootAPI();
 			await chatwoot.reactivateAccount(accountId);
 			await FirebaseAdmin.updateSubscription(accountId, { status: 'active', planType, daysRemaining: days });
+			await FirebaseAdmin.addAuditLog(adminEmail, 'Renew Account', `Renewed account ${accountId} from main dashboard`);
 			return { success: true };
 		} catch (err) {
 			return fail(500, { error: 'Failed to renew account' });
 		}
 	},
 
-	refreshDays: async ({ request }) => {
+	refreshDays: async ({ request, locals }) => {
 		const data = await request.formData();
 		const accountId = data.get('accountId');
 		const daysToAdd = parseInt(data.get('days') || '30', 10);
 		const note = data.get('note') || '';
+		const adminEmail = locals.adminEmail || 'Unknown';
 
 		try {
 			const sub = await FirebaseAdmin.getSubscription(accountId);
@@ -102,7 +107,7 @@ export const actions = {
 			const historyEntry = {
 				date: new Date().toISOString(),
 				action: `Added ${daysToAdd} days`,
-				admin: 'Admin',
+				admin: adminEmail,
 				notes: note,
 				type: 'days_added'
 			};
@@ -116,6 +121,7 @@ export const actions = {
 				updatedAt: new Date().toISOString()
 			}, { merge: true });
 
+			await FirebaseAdmin.addAuditLog(adminEmail, 'Refresh Days', `Added ${daysToAdd} days to account ${accountId}`);
 			return { success: true };
 		} catch (err) {
 			console.error("Failed to refresh days", err);
@@ -123,13 +129,15 @@ export const actions = {
 		}
 	},
 
-	toggleFreeze: async ({ request }) => {
+	toggleFreeze: async ({ request, locals }) => {
 		const data = await request.formData();
 		const accountId = data.get('accountId');
 		const freeze = data.get('freeze') === 'true';
+		const adminEmail = locals.adminEmail || 'Unknown';
 
 		try {
 			await FirebaseAdmin.updateSubscription(accountId, { freeze });
+			await FirebaseAdmin.addAuditLog(adminEmail, 'Toggle Freeze', `${freeze ? 'Froze' : 'Unfroze'} account ${accountId} from main dashboard`);
 			return { success: true };
 		} catch (err) {
 			console.error("Failed to toggle freeze", err);
@@ -140,10 +148,12 @@ export const actions = {
 	destroy: async ({ request, locals }) => {
 		const data = await request.formData();
 		const accountId = data.get('accountId');
+		const adminEmail = locals.adminEmail || 'Unknown';
 		
 		try {
 			const chatwoot = new ChatwootAPI();
 			await chatwoot.destroyAccount(accountId);
+			await FirebaseAdmin.addAuditLog(adminEmail, 'Destroy Account', `Destroyed account ${accountId} from main dashboard`);
 			return { success: true };
 		} catch (err) {
 			console.error("Failed to destroy account", err);

@@ -62,10 +62,11 @@ export async function load({ params }) {
 }
 
 export const actions = {
-	resetPassword: async ({ request, params }) => {
+	resetPassword: async ({ request, params, locals }) => {
 		const data = await request.formData();
 		const newPassword = data.get('newPassword');
 		const accountId = params.id;
+		const adminEmail = locals.adminEmail || 'Unknown';
 
 		if (!newPassword || newPassword.length < 6) {
 			return fail(400, { error: 'Password must be at least 6 characters long' });
@@ -79,6 +80,7 @@ export const actions = {
 				return fail(400, { error: result.error || 'Failed to update password' });
 			}
 
+			await FirebaseAdmin.addAuditLog(adminEmail, 'Reset Password', `Reset password for account ${accountId}`);
 			return { success: true, message: 'Password reset successfully!' };
 		} catch (error) {
 			console.error('Password reset error:', error);
@@ -86,8 +88,9 @@ export const actions = {
 		}
 	},
 
-	forceLogout: async ({ params }) => {
+	forceLogout: async ({ params, locals }) => {
 		const accountId = params.id;
+		const adminEmail = locals.adminEmail || 'Unknown';
 
 		try {
 			const chatwoot = new ChatwootAPI();
@@ -97,6 +100,7 @@ export const actions = {
 				return fail(400, { error: result.error || 'Failed to force logout' });
 			}
 
+			await FirebaseAdmin.addAuditLog(adminEmail, 'Force Logout', `Forced logout for account ${accountId}`);
 			return { success: true, message: 'User forcefully logged out of all devices!' };
 		} catch (error) {
 			console.error('Force logout error:', error);
@@ -104,9 +108,10 @@ export const actions = {
 		}
 	},
 
-	editSubscription: async ({ request, params }) => {
+	editSubscription: async ({ request, params, locals }) => {
 		const data = await request.formData();
 		const accountId = params.id;
+		const adminEmail = locals.adminEmail || 'Unknown';
 		
 		const planType = data.get('planType');
 		const daysRemaining = parseInt(data.get('daysRemaining'));
@@ -137,6 +142,7 @@ export const actions = {
 				phoneNumber: phoneNumber || 'N/A'
 			});
 
+			await FirebaseAdmin.addAuditLog(adminEmail, 'Edit Subscription', `Edited subscription for account ${accountId}. Days: ${daysRemaining}, Plan: ${planType}`);
 			return { success: true, message: 'Subscription data updated successfully in Firebase!' };
 		} catch (error) {
 			console.error('Edit subscription error:', error);
@@ -144,23 +150,26 @@ export const actions = {
 		}
 	},
 
-	setStartupFee: async ({ request, params }) => {
+	setStartupFee: async ({ request, params, locals }) => {
 		const data = await request.formData();
 		const amount = parseInt(data.get('amount') || '0', 10);
+		const adminEmail = locals.adminEmail || 'Unknown';
 		try {
 			await FirebaseAdmin.updateSubscription(params.id, {
 				startup_fee: { amount, paid: 0, remaining: amount }
 			});
+			await FirebaseAdmin.addAuditLog(adminEmail, 'Set Startup Fee', `Set startup fee to ${amount} for account ${params.id}`);
 			return { success: true, message: 'Startup fee set!' };
 		} catch (err) {
 			return fail(500, { error: 'Failed to set startup fee' });
 		}
 	},
 	
-	addPendingFee: async ({ request, params }) => {
+	addPendingFee: async ({ request, params, locals }) => {
 		const data = await request.formData();
 		const amount = parseInt(data.get('amount') || '0', 10);
 		const month = data.get('month') || new Date().toLocaleString('default', { month: 'short', year: 'numeric' });
+		const adminEmail = locals.adminEmail || 'Unknown';
 		try {
 			const { FieldValue } = await import('firebase-admin/firestore');
 			const { db } = await import('$lib/server/firebase');
@@ -169,13 +178,14 @@ export const actions = {
 			const newFee = { id: Date.now().toString(), type: 'monthly', amount, remaining: amount, paid: false, month_label: month };
 			await docRef.set({ pending_fees: FieldValue.arrayUnion(newFee) }, { merge: true });
 			
+			await FirebaseAdmin.addAuditLog(adminEmail, 'Add Pending Fee', `Added monthly fee of ${amount} for ${month} to account ${params.id}`);
 			return { success: true, message: 'Added pending monthly fee!' };
 		} catch (err) {
 			return fail(500, { error: 'Failed to add monthly fee' });
 		}
 	},
 
-	recordPayment: async ({ request, params }) => {
+	recordPayment: async ({ request, params, locals }) => {
 		const data = await request.formData();
 		const amount = parseInt(data.get('amount') || '0', 10);
 		const type = data.get('type'); // 'startup' or 'monthly'
@@ -183,6 +193,7 @@ export const actions = {
 		const bankType = data.get('bankType') || 'Cash';
 		const txId = data.get('txId') || '';
 		const notes = data.get('notes') || '';
+		const adminEmail = locals.adminEmail || 'Unknown';
 		
 		try {
 			const sub = await FirebaseAdmin.getSubscription(params.id);
@@ -212,7 +223,7 @@ export const actions = {
 			const historyEntry = {
 				date: new Date().toISOString(),
 				action: `Paid ${amount} towards ${type}`,
-				admin: 'Admin',
+				admin: adminEmail,
 				notes: `${bankType} ${txId ? 'Tx: '+txId : ''} ${notes}`.trim(),
 				type: 'payment',
 				amount_paid: amount
@@ -222,6 +233,7 @@ export const actions = {
 			updateData.updatedAt = new Date().toISOString();
 			
 			await docRef.set(updateData, { merge: true });
+			await FirebaseAdmin.addAuditLog(adminEmail, 'Record Payment', `Recorded payment of ${amount} for account ${params.id}`);
 			return { success: true, message: 'Payment recorded!' };
 			
 		} catch (err) {
@@ -230,56 +242,66 @@ export const actions = {
 		}
 	},
 
-	updateLabelColor: async ({ request, params }) => {
+	updateLabelColor: async ({ request, params, locals }) => {
 		const data = await request.formData();
 		const labelColor = data.get('labelColor') || 'gray';
+		const adminEmail = locals.adminEmail || 'Unknown';
 		try {
 			await FirebaseAdmin.updateSubscription(params.id, { labelColor });
+			await FirebaseAdmin.addAuditLog(adminEmail, 'Update Label', `Changed label color to ${labelColor} for account ${params.id}`);
 			return { success: true, message: 'Label color updated!' };
 		} catch (err) {
 			return fail(500, { error: 'Failed to update label color' });
 		}
 	},
 
-	suspend: async ({ params }) => {
+	suspend: async ({ params, locals }) => {
+		const adminEmail = locals.adminEmail || 'Unknown';
 		try {
 			const chatwoot = new ChatwootAPI();
 			await chatwoot.suspendAccount(params.id);
 			await FirebaseAdmin.updateSubscription(params.id, { status: 'suspended', daysRemaining: 0 });
+			await FirebaseAdmin.addAuditLog(adminEmail, 'Suspend Account', `Suspended account ${params.id}`);
 			return { success: true, message: 'Account suspended.' };
 		} catch (err) {
 			return fail(500, { error: 'Failed to suspend account' });
 		}
 	},
 
-	renew: async ({ request, params }) => {
+	renew: async ({ request, params, locals }) => {
 		const data = await request.formData();
 		const days = parseInt(data.get('daysRemaining') || '30', 10);
+		const adminEmail = locals.adminEmail || 'Unknown';
 		try {
 			const chatwoot = new ChatwootAPI();
 			await chatwoot.reactivateAccount(params.id);
 			await FirebaseAdmin.updateSubscription(params.id, { status: 'active', daysRemaining: days });
+			await FirebaseAdmin.addAuditLog(adminEmail, 'Renew Account', `Renewed account ${params.id} for ${days} days`);
 			return { success: true, message: 'Account renewed.' };
 		} catch (err) {
 			return fail(500, { error: 'Failed to renew account' });
 		}
 	},
 
-	toggleFreeze: async ({ request, params }) => {
+	toggleFreeze: async ({ request, params, locals }) => {
 		const data = await request.formData();
 		const freeze = data.get('freeze') === 'true';
+		const adminEmail = locals.adminEmail || 'Unknown';
 		try {
 			await FirebaseAdmin.updateSubscription(params.id, { freeze });
+			await FirebaseAdmin.addAuditLog(adminEmail, 'Toggle Freeze', `${freeze ? 'Froze' : 'Unfroze'} app for account ${params.id}`);
 			return { success: true, message: freeze ? 'App Frozen' : 'App Unfrozen' };
 		} catch (err) {
 			return fail(500, { error: 'Failed to freeze/unfreeze' });
 		}
 	},
 
-	destroy: async ({ params }) => {
+	destroy: async ({ params, locals }) => {
+		const adminEmail = locals.adminEmail || 'Unknown';
 		try {
 			const chatwoot = new ChatwootAPI();
 			await chatwoot.destroyAccount(params.id);
+			await FirebaseAdmin.addAuditLog(adminEmail, 'Destroy Account', `Destroyed account ${params.id}`);
 			return { success: true, message: 'Account destroyed.' };
 		} catch (err) {
 			return fail(500, { error: 'Failed to destroy account' });
