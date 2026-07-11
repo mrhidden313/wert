@@ -153,4 +153,5 @@
 			</tbody>
 		</table>
 	</div>
+</div>
 
