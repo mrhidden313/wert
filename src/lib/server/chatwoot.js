@@ -1,6 +1,6 @@
 import { env } from '$env/dynamic/private';
 
-const CHATWOOT_BASE_URL = env.VITE_CHATWOOT_BASE_URL || env.CHATWOOT_BASE_URL || 'https://api.instantflow.online';
+const CHATWOOT_BASE_URL = env.INSTANTFLOW_BASE_URL || 'https://api.instantflow.online';
 
 export class ChatwootAPI {
 	/**
