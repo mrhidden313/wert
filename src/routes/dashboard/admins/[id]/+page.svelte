@@ -237,3 +237,8 @@
 		<button type="submit" form="payCommissionForm" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium rounded-lg shadow-sm transition-colors">Record Payment</button>
 	{/snippet}
 </Modal>
+
+<div class="mt-8 p-4 bg-red-900/20 border border-red-500/50 rounded-lg">
+	<h3 class="text-red-400 font-bold mb-2">DEBUG RAW LEDGER DATA:</h3>
+	<pre class="text-xs text-gray-300 whitespace-pre-wrap">{JSON.stringify(data.rawLedger || [], null, 2)}</pre>
+</div>

@@ -13,7 +13,7 @@ export async function load({ params, locals }) {
 		const nameFallback = adminEmail.toLowerCase().includes('uzair') ? 'Uzair' : 'MrHidden';
 		const adminLedger = (allLedgers.entries || []).filter(e => e.adminEmail === adminEmail || e.adminName === nameFallback);
 
-		return { profile, adminLedger, isMasterAdmin };
+		return { profile, adminLedger, rawLedger: allLedgers.entries, isMasterAdmin };
 	} catch (err) {
 		console.error("Admin Profile Load Error:", err);
 		return { profile: { email: adminEmail, networth: 0, history: [] }, adminLedger: [], isMasterAdmin: false, error: 'Failed to load admin profile' };
