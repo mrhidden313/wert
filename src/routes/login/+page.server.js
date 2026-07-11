@@ -68,10 +68,8 @@ export const actions = {
 		// Use Environment Variables for Admin authentication
 		const superAdminEmail = env.ADMIN_EMAIL || 'mrhiddenhacker313@gmail.com';
 		const expectedPassword = env.ADMIN_PASSWORD;
-		const uzairPassword = env.UZAIR_PASSWORD || expectedPassword; // Fallback to main password if not set
-
-		// Allowed admins
-		const allowedAdmins = [superAdminEmail, 'uzairadmin@gmail.com'];
+		const uzairEmail = env.UZAIR_EMAIL;
+		const uzairPassword = env.UZAIR_PASSWORD;
 
 		if (!expectedPassword) {
 			console.error("ADMIN_PASSWORD is not set in environment variables!");
@@ -82,7 +80,7 @@ export const actions = {
 		let isValid = false;
 		if (email === superAdminEmail && password === expectedPassword) {
 			isValid = true;
-		} else if (email === 'uzairadmin@gmail.com' && password === uzairPassword) {
+		} else if (uzairEmail && uzairPassword && email === uzairEmail && password === uzairPassword) {
 			isValid = true;
 		}
 
