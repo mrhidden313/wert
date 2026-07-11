@@ -107,10 +107,9 @@
 							<form method="POST" action="?/updatePlan" use:enhance class="m-0">
 								<input type="hidden" name="accountId" value={account.id} />
 								<select name="planType" onchange={(e) => e.target.form.requestSubmit()} class="bg-emerald-900/30 border border-emerald-500/30 text-emerald-400 text-xs font-semibold rounded-lg focus:ring-emerald-500 focus:border-emerald-500 block px-2 py-1 cursor-pointer">
-									<option value="Trial" selected={account.planType === 'Trial' || account.planType === 'Unknown'}>Trial</option>
-									<option value="Basic" selected={account.planType === 'Basic'}>Basic</option>
-									<option value="Pro" selected={account.planType === 'Pro'}>Pro</option>
-									<option value="Enterprise" selected={account.planType === 'Enterprise'}>Enterprise</option>
+									<option value="Trial" selected={account.planType === 'Trial'}>Trial</option>
+									<option value="Monthly" selected={account.planType === 'Monthly' || account.planType === 'Unknown'}>Monthly</option>
+									<option value="Yearly" selected={account.planType === 'Yearly'}>Yearly</option>
 								</select>
 							</form>
 						</td>
@@ -131,7 +130,7 @@
 
 										let planTypeToUpdate = account.planType;
 										if (parseInt(days) >= 3 && (account.planType === 'Trial' || account.planType === 'Unknown')) {
-											const selectedPlan = prompt("Trial is over! Enter new Plan Type (Basic, Pro, Enterprise):", "Basic");
+											const selectedPlan = prompt("Trial is over! Enter new Plan Type (Monthly, Yearly):", "Monthly");
 											if (selectedPlan) planTypeToUpdate = selectedPlan;
 										}
 
