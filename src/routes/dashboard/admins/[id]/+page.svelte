@@ -119,9 +119,9 @@
 								<td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
 									{#if entry.type === 'pay'}
 										<span class="text-orange-400">Rs {entry.amount.toLocaleString()}</span>
-									{#else if entry.type === 'edit'}
+									{:else if entry.type === 'edit'}
 										<span class="text-blue-400">Rs {entry.amount.toLocaleString()}</span>
-									{#else}
+									{:else}
 										<span class={entry.amount > 0 ? 'text-emerald-400' : 'text-red-400'}>
 											{entry.amount > 0 ? '+' : ''}{entry.amount.toLocaleString()}
 										</span>
