@@ -1,6 +1,7 @@
 <script>
 	import { enhance } from '$app/forms';
 	let { data, form } = $props();
+	let loadingAction = $state(null);
 
 	function promptPayment(type, feeId, maxAmount) {
 		const amount = prompt(`Enter amount to pay (Max: ${maxAmount}):`, maxAmount);
@@ -273,5 +274,83 @@
 				{/if}
 			</div>
 		</div>
+		<!-- Account Management (Danger Zone & Labels) -->
+		<div class="bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-sm md:col-span-2">
+			<h2 class="text-lg font-semibold text-white mb-4 border-b border-gray-800 pb-2">Account Management</h2>
+			
+			<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+				
+				<!-- Color Label Picker -->
+				<div class="bg-gray-950 p-4 rounded-lg border border-gray-800">
+					<h3 class="text-xs font-medium text-gray-500 uppercase mb-2">Color Label</h3>
+					<form method="POST" action="?/updateLabelColor" use:enhance class="flex items-center space-x-2">
+						<select name="labelColor" class="flex-1 bg-gray-900 border border-gray-700 text-gray-300 text-sm rounded-lg focus:ring-emerald-500 focus:border-emerald-500 block p-1.5">
+							<option value="gray" selected={data.account.labelColor === 'gray'}>Gray</option>
+							<option value="red" selected={data.account.labelColor === 'red'}>Red</option>
+							<option value="blue" selected={data.account.labelColor === 'blue'}>Blue</option>
+							<option value="green" selected={data.account.labelColor === 'green'}>Green</option>
+							<option value="purple" selected={data.account.labelColor === 'purple'}>Purple</option>
+							<option value="orange" selected={data.account.labelColor === 'orange'}>Orange</option>
+						</select>
+						<button type="submit" class="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-white rounded text-xs transition-colors">Save</button>
+					</form>
+				</div>
+
+				<!-- Suspend/Renew -->
+				<div class="bg-gray-950 p-4 rounded-lg border border-gray-800">
+					<h3 class="text-xs font-medium text-gray-500 uppercase mb-2">Access Status</h3>
+					{#if data.account.status === 'active'}
+						<form method="POST" action="?/suspend" use:enhance={() => {
+							loadingAction = `suspend`;
+							return async ({ update }) => { await update(); loadingAction = null; };
+						}}>
+							<button type="submit" disabled={loadingAction} class="w-full px-4 py-2 bg-yellow-600/20 text-yellow-500 hover:bg-yellow-600/30 border border-yellow-600/30 rounded-lg text-sm font-medium transition-colors disabled:opacity-50">
+								Suspend Account
+							</button>
+						</form>
+					{:else}
+						<form method="POST" action="?/renew" use:enhance={() => {
+							loadingAction = `renew`;
+							return async ({ update }) => { await update(); loadingAction = null; };
+						}}>
+							<input type="hidden" name="daysRemaining" value="30" />
+							<button type="submit" disabled={loadingAction} class="w-full px-4 py-2 bg-emerald-600/20 text-emerald-500 hover:bg-emerald-600/30 border border-emerald-600/30 rounded-lg text-sm font-medium transition-colors disabled:opacity-50">
+								Renew (30d)
+							</button>
+						</form>
+					{/if}
+				</div>
+
+				<!-- App Freeze -->
+				<div class="bg-gray-950 p-4 rounded-lg border border-gray-800">
+					<h3 class="text-xs font-medium text-gray-500 uppercase mb-2">App Freeze</h3>
+					<form method="POST" action="?/toggleFreeze" use:enhance={() => {
+						loadingAction = `freeze`;
+						return async ({ update }) => { await update(); loadingAction = null; };
+					}}>
+						<input type="hidden" name="freeze" value={data.account.freeze ? 'false' : 'true'} />
+						<button type="submit" disabled={loadingAction} class="w-full px-4 py-2 {data.account.freeze ? 'bg-emerald-600/20 text-emerald-500 border-emerald-600/30 hover:bg-emerald-600/30' : 'bg-orange-600/20 text-orange-500 border-orange-600/30 hover:bg-orange-600/30'} border rounded-lg text-sm font-medium transition-colors disabled:opacity-50">
+							{data.account.freeze ? 'Unfreeze App' : 'Freeze App'}
+						</button>
+					</form>
+				</div>
+
+				<!-- Destroy -->
+				<div class="bg-gray-950 p-4 rounded-lg border border-red-900/30">
+					<h3 class="text-xs font-medium text-red-500 uppercase mb-2">Danger Zone</h3>
+					<form method="POST" action="?/destroy" use:enhance={() => {
+						if (!confirm('Are you absolutely sure? This will delete the account and all its data permanently.')) return () => {};
+						loadingAction = `destroy`;
+						return async ({ update }) => { await update(); loadingAction = null; };
+					}}>
+						<button type="submit" disabled={loadingAction} class="w-full px-4 py-2 bg-red-600/20 text-red-500 hover:bg-red-600/30 border border-red-600/30 rounded-lg text-sm font-medium transition-colors disabled:opacity-50">
+							Destroy Account
+						</button>
+					</form>
+				</div>
+
+			</div>
+		</div>
+
 	</div>
 {/if}

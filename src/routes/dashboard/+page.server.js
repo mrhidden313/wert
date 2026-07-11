@@ -43,7 +43,8 @@ export async function load({ locals }) {
 				planType: sub.planType || 'Unknown',
 				daysRemaining: sub.daysRemaining || 0,
 				freeze: sub.freeze || false,
-				linkedEmail: acc.admin_email || sub.linkedEmail || 'N/A' // Use Chatwoot admin email if available
+				linkedEmail: acc.admin_email || sub.linkedEmail || 'N/A', // Use Chatwoot admin email if available
+				labelColor: sub.labelColor || 'gray'
 			};
 		});
 

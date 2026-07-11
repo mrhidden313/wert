@@ -1,9 +1,50 @@
 <script>
+	import { Doughnut, Pie } from 'svelte-chartjs';
+	import { Chart, Title, Tooltip, Legend, ArcElement } from 'chart.js';
+
+	Chart.register(Title, Tooltip, Legend, ArcElement);
+
 	let { data } = $props();
+
+	let duesData = {
+		labels: ['Paid Revenue', 'Pending Dues'],
+		datasets: [{
+			data: [data.analytics?.totalRevenue || 0, data.analytics?.totalPending || 0],
+			backgroundColor: ['rgba(16, 185, 129, 0.8)', 'rgba(249, 115, 22, 0.8)'],
+			borderColor: ['rgba(16, 185, 129, 1)', 'rgba(249, 115, 22, 1)'],
+			borderWidth: 1
+		}]
+	};
+
+	let methodsData = {
+		labels: ['Cash', 'Bank', 'Easypaisa', 'Other'],
+		datasets: [{
+			data: [
+				data.analytics?.paymentMethods?.Cash || 0,
+				data.analytics?.paymentMethods?.Bank || 0,
+				data.analytics?.paymentMethods?.Easypaisa || 0,
+				data.analytics?.paymentMethods?.Other || 0
+			],
+			backgroundColor: ['rgba(16, 185, 129, 0.8)', 'rgba(59, 130, 246, 0.8)', 'rgba(139, 92, 246, 0.8)', 'rgba(107, 114, 128, 0.8)'],
+			borderColor: ['#111827', '#111827', '#111827', '#111827'],
+			borderWidth: 2
+		}]
+	};
+
+	const pieOptions = {
+		responsive: true,
+		maintainAspectRatio: false,
+		plugins: {
+			legend: {
+				position: 'bottom',
+				labels: { color: '#9ca3af', padding: 20, font: { size: 12 } }
+			}
+		}
+	};
 </script>
 
 <svelte:head>
-	<title>Billing Dashboard - InstantFlow</title>
+	<title>Billing & Pricing - InstantFlow</title>
 </svelte:head>
 
 <div class="mb-8 flex items-center space-x-4">
@@ -13,12 +54,53 @@
 		</svg>
 	</a>
 	<div>
-		<h1 class="text-2xl font-bold text-white">Global Billing Dashboard</h1>
-		<p class="text-gray-400 mt-1">Accounts with pending startup or monthly fees.</p>
+		<h1 class="text-2xl font-bold text-white">Billing & Pricing Dashboard</h1>
+		<p class="text-gray-400 mt-1">Financial analytics and pending dues overview.</p>
 	</div>
 </div>
 
-<div class="bg-gray-900 border border-gray-800 rounded-xl shadow-sm overflow-hidden">
+{#if data.error}
+	<div class="bg-red-900/30 border border-red-500/50 text-red-400 p-4 rounded-lg mb-6">
+		{data.error}
+	</div>
+{/if}
+
+<!-- ANALYTICS SECTION -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+	<!-- Summary Cards -->
+	<div class="flex flex-col gap-4">
+		<div class="bg-gradient-to-br from-emerald-900/40 to-gray-900 border border-emerald-500/20 p-6 rounded-xl shadow-sm flex-1 flex flex-col justify-center">
+			<h3 class="text-emerald-500 text-sm font-medium uppercase tracking-wider mb-2">Total Revenue</h3>
+			<p class="text-4xl font-bold text-white">Rs {data.analytics?.totalRevenue?.toLocaleString() || 0}</p>
+		</div>
+		<div class="bg-gradient-to-br from-orange-900/40 to-gray-900 border border-orange-500/20 p-6 rounded-xl shadow-sm flex-1 flex flex-col justify-center">
+			<h3 class="text-orange-500 text-sm font-medium uppercase tracking-wider mb-2">Pending Dues</h3>
+			<p class="text-4xl font-bold text-white">Rs {data.analytics?.totalPending?.toLocaleString() || 0}</p>
+		</div>
+	</div>
+
+	<!-- Paid vs Pending Chart -->
+	<div class="bg-gray-900 border border-gray-800 p-6 rounded-xl shadow-sm">
+		<h3 class="text-gray-300 text-sm font-medium uppercase tracking-wider mb-4 text-center">Collection Status</h3>
+		<div class="h-48">
+			<Doughnut data={duesData} options={pieOptions} />
+		</div>
+	</div>
+
+	<!-- Payment Methods Chart -->
+	<div class="bg-gray-900 border border-gray-800 p-6 rounded-xl shadow-sm">
+		<h3 class="text-gray-300 text-sm font-medium uppercase tracking-wider mb-4 text-center">Payment Methods</h3>
+		<div class="h-48">
+			<Pie data={methodsData} options={pieOptions} />
+		</div>
+	</div>
+</div>
+
+<!-- LEDGER TABLE -->
+<div class="bg-gray-900 border border-gray-800 rounded-xl shadow-sm overflow-hidden mt-8">
+	<div class="px-6 py-4 border-b border-gray-800">
+		<h2 class="text-lg font-semibold text-white">Accounts with Pending Dues</h2>
+	</div>
 	<div class="overflow-x-auto">
 		<table class="min-w-full divide-y divide-gray-800">
 			<thead class="bg-gray-950/50">
@@ -71,4 +153,4 @@
 			</tbody>
 		</table>
 	</div>
-</div>
+

@@ -5,15 +5,13 @@
 	
 	let loadingAction = $state(null);
 	let currentTab = $state('active'); // 'active', 'expired', 'suspended'
+	let filterColor = $state('all'); 
 
 	let filteredAccounts = $derived((data.accounts || []).filter(account => {
-		if (currentTab === 'active') {
-			return account.status === 'active' && account.daysRemaining > 0;
-		} else if (currentTab === 'expired') {
-			return account.status === 'active' && account.daysRemaining <= 0;
-		} else if (currentTab === 'suspended') {
-			return account.status === 'suspended';
-		}
+		if (currentTab === 'active' && (account.status !== 'active' || account.daysRemaining <= 0)) return false;
+		if (currentTab === 'expired' && (account.status !== 'active' || account.daysRemaining > 0)) return false;
+		if (currentTab === 'suspended' && account.status !== 'suspended') return false;
+		if (filterColor !== 'all' && (account.labelColor || 'gray') !== filterColor) return false;
 		return true;
 	}));
 </script>
@@ -44,7 +42,7 @@
 	</div>
 {/if}
 
-<div class="mb-6 border-b border-gray-800">
+<div class="mb-6 border-b border-gray-800 flex justify-between items-center pr-2">
 	<nav class="-mb-px flex space-x-8" aria-label="Tabs">
 		<button 
 			class="{currentTab === 'active' ? 'border-emerald-500 text-emerald-400' : 'border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-700'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors"
@@ -62,6 +60,19 @@
 			Suspended
 		</button>
 	</nav>
+	
+	<div class="flex items-center gap-2">
+		<label class="text-xs text-gray-400 font-medium">Filter Color:</label>
+		<select bind:value={filterColor} class="bg-gray-900 border border-gray-700 text-gray-300 text-xs rounded-lg focus:ring-emerald-500 focus:border-emerald-500 block p-1.5 cursor-pointer">
+			<option value="all">All</option>
+			<option value="gray">Gray (Default)</option>
+			<option value="red">Red</option>
+			<option value="blue">Blue</option>
+			<option value="green">Green</option>
+			<option value="purple">Purple</option>
+			<option value="orange">Orange</option>
+		</select>
+	</div>
 </div>
 
 <div class="bg-gray-900 border border-gray-800 rounded-xl shadow-sm overflow-hidden">
@@ -74,7 +85,6 @@
 					<th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Plan</th>
 					<th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Validity</th>
 					<th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Status</th>
-					<th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-400 uppercase tracking-wider">Actions</th>
 				</tr>
 			</thead>
 			<tbody class="divide-y divide-gray-800">
@@ -83,9 +93,12 @@
 						class="hover:bg-gray-800/50 transition-colors cursor-pointer"
 						onclick={() => goto(`/dashboard/account/${account.id}`)}
 					>
-						<td class="px-6 py-4 whitespace-nowrap">
-							<span class="text-sm font-medium text-emerald-400">{account.name}</span>
-							<div class="text-xs text-gray-500">ID: {account.id}</div>
+						<td class="px-6 py-4 whitespace-nowrap flex items-center gap-3">
+							<div class="w-3 h-3 rounded-full flex-shrink-0 shadow-sm" style="background-color: {account.labelColor || 'gray'};"></div>
+							<div>
+								<span class="text-sm font-medium text-emerald-400">{account.name}</span>
+								<div class="text-xs text-gray-500">ID: {account.id}</div>
+							</div>
 						</td>
 						<td class="px-6 py-4 whitespace-nowrap">
 							<div class="text-sm text-gray-300">{account.linkedEmail}</div>
@@ -151,62 +164,6 @@
 									App Frozen
 								</span>
 							{/if}
-						</td>
-						<td 
-							class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium flex justify-end space-x-3"
-							onclick={(e) => e.stopPropagation()}
-						>
-							
-							{#if account.status === 'active'}
-								<!-- Suspend Action -->
-								<form method="POST" action="?/suspend" use:enhance={() => {
-									loadingAction = `suspend-${account.id}`;
-									return async ({ update }) => { await update(); loadingAction = null; };
-								}}>
-									<input type="hidden" name="accountId" value={account.id} />
-									<button type="submit" disabled={loadingAction} class="text-yellow-500 hover:text-yellow-400 disabled:opacity-50">
-										Suspend
-									</button>
-								</form>
-							{:else}
-								<!-- Renew Action (Quick 30 days) -->
-								<form method="POST" action="?/renew" use:enhance={() => {
-									loadingAction = `renew-${account.id}`;
-									return async ({ update }) => { await update(); loadingAction = null; };
-								}}>
-									<input type="hidden" name="accountId" value={account.id} />
-									<input type="hidden" name="planType" value={account.planType} />
-									<input type="hidden" name="daysRemaining" value="30" />
-									<button type="submit" disabled={loadingAction} class="text-emerald-400 hover:text-emerald-300 disabled:opacity-50">
-										Renew (30d)
-									</button>
-								</form>
-							{/if}
-
-							<!-- Freeze App Action -->
-							<form method="POST" action="?/toggleFreeze" use:enhance={() => {
-								loadingAction = `freeze-${account.id}`;
-								return async ({ update }) => { await update(); loadingAction = null; };
-							}}>
-								<input type="hidden" name="accountId" value={account.id} />
-								<input type="hidden" name="freeze" value={account.freeze ? 'false' : 'true'} />
-								<button type="submit" disabled={loadingAction} class="{account.freeze ? 'text-emerald-400 hover:text-emerald-300' : 'text-orange-500 hover:text-orange-400'} disabled:opacity-50 ml-2 border-l border-gray-700 pl-3">
-									{account.freeze ? 'Unfreeze' : 'Freeze'}
-								</button>
-							</form>
-
-							<!-- Destroy Action -->
-							<form method="POST" action="?/destroy" use:enhance={() => {
-								if (!confirm('Are you absolutely sure? This will delete the account and all its data permanently.')) return () => {};
-								loadingAction = `destroy-${account.id}`;
-								return async ({ update }) => { await update(); loadingAction = null; };
-							}}>
-								<input type="hidden" name="accountId" value={account.id} />
-								<button type="submit" disabled={loadingAction} class="text-red-500 hover:text-red-400 disabled:opacity-50 ml-2 border-l border-gray-700 pl-3">
-									Destroy
-								</button>
-							</form>
-
 						</td>
 					</tr>
 				{/each}

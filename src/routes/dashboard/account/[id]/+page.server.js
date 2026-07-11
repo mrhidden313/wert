@@ -228,5 +228,61 @@ export const actions = {
 			console.error(err);
 			return fail(500, { error: 'Failed to record payment' });
 		}
+	},
+
+	updateLabelColor: async ({ request, params }) => {
+		const data = await request.formData();
+		const labelColor = data.get('labelColor') || 'gray';
+		try {
+			await FirebaseAdmin.updateSubscription(params.id, { labelColor });
+			return { success: true, message: 'Label color updated!' };
+		} catch (err) {
+			return fail(500, { error: 'Failed to update label color' });
+		}
+	},
+
+	suspend: async ({ params }) => {
+		try {
+			const chatwoot = new ChatwootAPI();
+			await chatwoot.suspendAccount(params.id);
+			await FirebaseAdmin.updateSubscription(params.id, { status: 'suspended', daysRemaining: 0 });
+			return { success: true, message: 'Account suspended.' };
+		} catch (err) {
+			return fail(500, { error: 'Failed to suspend account' });
+		}
+	},
+
+	renew: async ({ request, params }) => {
+		const data = await request.formData();
+		const days = parseInt(data.get('daysRemaining') || '30', 10);
+		try {
+			const chatwoot = new ChatwootAPI();
+			await chatwoot.reactivateAccount(params.id);
+			await FirebaseAdmin.updateSubscription(params.id, { status: 'active', daysRemaining: days });
+			return { success: true, message: 'Account renewed.' };
+		} catch (err) {
+			return fail(500, { error: 'Failed to renew account' });
+		}
+	},
+
+	toggleFreeze: async ({ request, params }) => {
+		const data = await request.formData();
+		const freeze = data.get('freeze') === 'true';
+		try {
+			await FirebaseAdmin.updateSubscription(params.id, { freeze });
+			return { success: true, message: freeze ? 'App Frozen' : 'App Unfrozen' };
+		} catch (err) {
+			return fail(500, { error: 'Failed to freeze/unfreeze' });
+		}
+	},
+
+	destroy: async ({ params }) => {
+		try {
+			const chatwoot = new ChatwootAPI();
+			await chatwoot.destroyAccount(params.id);
+			return { success: true, message: 'Account destroyed.' };
+		} catch (err) {
+			return fail(500, { error: 'Failed to destroy account' });
+		}
 	}
 };
