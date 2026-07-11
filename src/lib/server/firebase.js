@@ -140,10 +140,12 @@ export class FirebaseAdmin {
 		const doc = await docRef.get();
 		if (!doc.exists) {
 			// Initialize if doesn't exist
-			await docRef.set({ email: adminEmail, networth: 0, history: [] });
-			return { email: adminEmail, networth: 0, history: [] };
+			await docRef.set({ email: adminEmail, networth: 0, totalPaid: 0, history: [] });
+			return { email: adminEmail, networth: 0, totalPaid: 0, history: [] };
 		}
-		return { id: doc.id, ...doc.data() };
+		const data = doc.data();
+		if (data.totalPaid === undefined) data.totalPaid = 0;
+		return { id: doc.id, ...data };
 	}
 
 	static async updateAdminNetworth(adminEmail, amount, type = 'add', note = '', addedBy = 'System', txId = '') {
@@ -162,6 +164,51 @@ export class FirebaseAdmin {
 			addedBy,
 			txId,
 			type
+		};
+
+		await docRef.set({
+			email: adminEmail,
+			networth: newNetworth,
+			history: FieldValue.arrayUnion(historyEntry),
+			updatedAt: new Date().toISOString()
+		}, { merge: true });
+	}
+
+	static async payAdmin(adminEmail, amount, note, addedBy) {
+		const docRef = db.collection('admin_profiles').doc(adminEmail);
+		const { FieldValue } = await import('firebase-admin/firestore');
+		
+		const doc = await docRef.get();
+		const currentPaid = doc.exists ? (doc.data().totalPaid || 0) : 0;
+		
+		const historyEntry = {
+			id: Date.now().toString(),
+			date: new Date().toISOString(),
+			amount: amount, // Positive amount to indicate what was paid
+			note: `Paid: ${note}`,
+			addedBy,
+			type: 'pay'
+		};
+
+		await docRef.set({
+			email: adminEmail,
+			totalPaid: currentPaid + amount,
+			history: FieldValue.arrayUnion(historyEntry),
+			updatedAt: new Date().toISOString()
+		}, { merge: true });
+	}
+
+	static async editNetworth(adminEmail, newNetworth, addedBy) {
+		const docRef = db.collection('admin_profiles').doc(adminEmail);
+		const { FieldValue } = await import('firebase-admin/firestore');
+		
+		const historyEntry = {
+			id: Date.now().toString(),
+			date: new Date().toISOString(),
+			amount: newNetworth,
+			note: `Networth adjusted manually to Rs ${newNetworth}`,
+			addedBy,
+			type: 'edit'
 		};
 
 		await docRef.set({
