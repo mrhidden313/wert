@@ -65,9 +65,10 @@ export const actions = {
 			return fail(400, { email, missing: true });
 		}
 
-		// Use Environment Variables for Super Admin authentication
+		// Use Environment Variables for Admin authentication
 		const superAdminEmail = env.ADMIN_EMAIL || 'mrhiddenhacker313@gmail.com';
 		const expectedPassword = env.ADMIN_PASSWORD;
+		const uzairPassword = env.UZAIR_PASSWORD || expectedPassword; // Fallback to main password if not set
 
 		// Allowed admins
 		const allowedAdmins = [superAdminEmail, 'uzairadmin@gmail.com'];
@@ -78,7 +79,14 @@ export const actions = {
 		}
 
 		// Verify email and password
-		if (!allowedAdmins.includes(email) || password !== expectedPassword) {
+		let isValid = false;
+		if (email === superAdminEmail && password === expectedPassword) {
+			isValid = true;
+		} else if (email === 'uzairadmin@gmail.com' && password === uzairPassword) {
+			isValid = true;
+		}
+
+		if (!isValid) {
 			recordFailedAttempt(ip);
 			return fail(401, { email, incorrect: true, error: "Access Denied: Invalid Email or Password." });
 		}
