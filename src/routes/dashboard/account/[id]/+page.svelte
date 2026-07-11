@@ -192,8 +192,21 @@
 					<h3 class="text-sm font-medium text-gray-400 uppercase mb-3">Startup Fee</h3>
 					{#if data.account.startup_fee}
 						<div class="mb-4">
-							<div class="flex justify-between text-sm mb-1">
-								<span class="text-white">Total: Rs {data.account.startup_fee.amount}</span>
+							<div class="flex justify-between text-sm mb-1 items-center">
+								<span class="text-white flex items-center gap-2">
+									Total: Rs {data.account.startup_fee.amount}
+									<button 
+										class="text-blue-400 hover:text-blue-300" 
+										onclick={() => {
+											const amt = prompt("Enter new total Startup Fee amount:", data.account.startup_fee.amount);
+											if (!amt || isNaN(amt) || amt <= 0) return;
+											submitAction('?/setStartupFee', { amount: amt });
+										}}
+										title="Edit Total Fee"
+									>
+										<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+									</button>
+								</span>
 								<span class="text-emerald-400">Paid: Rs {data.account.startup_fee.paid}</span>
 								<span class="text-orange-400">Remaining: Rs {data.account.startup_fee.remaining}</span>
 							</div>

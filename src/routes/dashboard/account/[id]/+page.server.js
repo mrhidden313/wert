@@ -155,8 +155,15 @@ export const actions = {
 		const amount = parseInt(data.get('amount') || '0', 10);
 		const adminEmail = locals.adminEmail || 'Unknown';
 		try {
+			const sub = await FirebaseAdmin.getSubscription(params.id);
+			let paid = 0;
+			if (sub && sub.startup_fee) {
+				paid = sub.startup_fee.paid || 0;
+			}
+			const remaining = Math.max(0, amount - paid);
+			
 			await FirebaseAdmin.updateSubscription(params.id, {
-				startup_fee: { amount, paid: 0, remaining: amount }
+				startup_fee: { amount, paid, remaining }
 			});
 			await FirebaseAdmin.addAuditLog(adminEmail, 'Set Startup Fee', `Set startup fee to ${amount} for account ${params.id}`);
 			return { success: true, message: 'Startup fee set!' };
