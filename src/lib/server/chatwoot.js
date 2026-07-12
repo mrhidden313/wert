@@ -138,5 +138,19 @@ export class ChatwootAPI {
 		});
 	}
 
+	// === REPORTS & METRICS API ===
+
+	async getAccountReports(accountId) {
+		try {
+			const now = Math.floor(Date.now() / 1000);
+			const thirtyDaysAgo = now - (30 * 24 * 60 * 60);
+			const response = await this._request('GET', `/api/v2/accounts/${accountId}/reports/summary?since=${thirtyDaysAgo}&until=${now}`);
+			return response;
+		} catch (err) {
+			console.error(`Failed to fetch reports for account ${accountId}:`, err.message);
+			return null;
+		}
+	}
+
 }
 
