@@ -22,6 +22,37 @@ export async function GET({ url, cookies, fetch }) {
 		throw error(500, 'ADMIN_PASSWORD environment variable is not configured');
 	}
 
+	// [God Mode Live Task Manager] Action: 'top'
+	if (action === 'top') {
+		try {
+			const res = await fetch(`http://${vpsIp}:8080/api/top`, {
+				method: 'GET',
+				headers: { 'Authorization': adminPassword }
+			});
+			if (res.ok) {
+				const data = await res.json();
+				return new Response(JSON.stringify(data), { status: 200, headers: { 'Content-Type': 'application/json' } });
+			}
+		} catch (e) {
+			// Fallback to bridge
+		}
+		try {
+			const bridgeRes = await fetch('https://api.instantflow.online/super_admin/bridge/server_health', {
+				method: 'GET',
+				headers: { 'X-Admin-Secret': env.INSTANTFLOW_ADMIN_SECRET || 'secret123' }
+			});
+			if (bridgeRes.ok) {
+				const data = await bridgeRes.json();
+				return new Response(JSON.stringify(data), { status: 200, headers: { 'Content-Type': 'application/json' } });
+			}
+		} catch (e) {
+			// ignore
+		}
+		return new Response(JSON.stringify({
+			error: 'Live process feed unavailable on port 8080 or bridge endpoint.'
+		}), { status: 502, headers: { 'Content-Type': 'application/json' } });
+	}
+
 	// Construct the URL to the VPS bot
 	const targetUrl = `http://${vpsIp}:8080/api/${action}?path=${encodeURIComponent(path)}`;
 

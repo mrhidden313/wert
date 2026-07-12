@@ -9,13 +9,56 @@
 
 	let processSearch = $state('');
 
+	// God Mode Live Task Manager State
+	let vpsIp = $state('69.169.103.35');
+	let isLiveScanning = $state(false);
+	let liveProcesses = $state(null);
+	let scanMessage = $state('');
+	let pollingInterval = $state(null);
+	let isAutoRefresh = $state(false);
+
+	let activeProcesses = $derived(liveProcesses || processes);
+
 	let filteredProcesses = $derived(
-		processes.filter((p) => {
+		activeProcesses.filter((p) => {
 			if (!processSearch) return true;
 			const q = processSearch.toLowerCase();
 			return p.name.toLowerCase().includes(q) || String(p.pid).includes(q) || p.user.toLowerCase().includes(q);
 		})
 	);
+
+	async function fetchLiveTop() {
+		if (!vpsIp) return;
+		isLiveScanning = true;
+		scanMessage = 'Connecting to VPS Live Task Manager...';
+		try {
+			const res = await fetch(`/api/vps-proxy?ip=${encodeURIComponent(vpsIp)}&action=top`);
+			if (res.ok) {
+				const data = await res.json();
+				if (data.processes) {
+					liveProcesses = data.processes;
+					scanMessage = `Live feed connected (${data.processes.length} active processes)`;
+				}
+			} else {
+				scanMessage = 'Could not reach Port 8080 or Bridge endpoint.';
+			}
+		} catch (err) {
+			scanMessage = 'Error connecting to live process feed.';
+		} finally {
+			isLiveScanning = false;
+		}
+	}
+
+	function toggleAutoRefresh() {
+		isAutoRefresh = !isAutoRefresh;
+		if (isAutoRefresh) {
+			fetchLiveTop();
+			pollingInterval = setInterval(fetchLiveTop, 5000);
+		} else if (pollingInterval) {
+			clearInterval(pollingInterval);
+			pollingInterval = null;
+		}
+	}
 
 	function getBarColor(percent) {
 		if (percent >= 85) return 'from-rose-600 to-rose-400';
@@ -131,6 +174,60 @@
 		<div class="text-[11px] text-gray-500 font-mono border-t border-gray-800/80 pt-3">
 			Mounted on /dev/vda1 (ext4 filesystem)
 		</div>
+	</div>
+</div>
+
+<!-- GOD MODE LIVE TASK MANAGER CONNECTOR -->
+<div class="bg-gray-900 border border-gray-800 rounded-xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+	<div class="flex items-center gap-3">
+		<div class="w-10 h-10 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+			<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+			</svg>
+		</div>
+		<div>
+			<h4 class="text-sm font-bold text-white flex items-center gap-2">
+				Live VPS Task Manager (God Mode)
+				{#if isAutoRefresh}
+					<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-900/40 text-emerald-300 border border-emerald-500/40 animate-pulse">
+						<span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> LIVE 5s
+					</span>
+				{/if}
+			</h4>
+			<p class="text-xs text-gray-400">
+				{#if scanMessage}
+					{scanMessage}
+				{:else}
+					Fetch real-time top processes directly from VPS IP {vpsIp}
+				{/if}
+			</p>
+		</div>
+	</div>
+
+	<div class="flex items-center gap-2 w-full sm:w-auto">
+		<input
+			type="text"
+			bind:value={vpsIp}
+			placeholder="VPS IP Address"
+			class="bg-gray-950 border border-gray-800 rounded-lg px-3 py-1.5 text-xs text-white font-mono w-36 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+		/>
+		<button
+			onclick={fetchLiveTop}
+			disabled={isLiveScanning}
+			class="btn bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-bold px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors"
+		>
+			{#if isLiveScanning}
+				<span>Scanning...</span>
+			{:else}
+				<span>Scan Live Processes</span>
+			{/if}
+		</button>
+		<button
+			onclick={toggleAutoRefresh}
+			class="btn text-xs font-bold px-3 py-1.5 rounded-lg border transition-colors {isAutoRefresh ? 'bg-emerald-950/60 border-emerald-500 text-emerald-300' : 'bg-gray-950 border-gray-800 text-gray-300 hover:bg-gray-800'}"
+		>
+			{isAutoRefresh ? 'Stop Live' : 'Live 5s Polling'}
+		</button>
 	</div>
 </div>
 
