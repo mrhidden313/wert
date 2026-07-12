@@ -6,14 +6,24 @@
 	let loadingAction = $state(null);
 	let currentTab = $state('active'); // 'active', 'expired', 'suspended'
 	let filterColor = $state('all'); 
+	let sortBy = $state('latest'); // 'latest', 'oldest', 'days_high', 'days_low'
 
-	let filteredAccounts = $derived((data.accounts || []).filter(account => {
-		if (currentTab === 'active' && (account.status !== 'active' || account.daysRemaining <= 0)) return false;
-		if (currentTab === 'expired' && (account.status !== 'active' || account.daysRemaining > 0)) return false;
-		if (currentTab === 'suspended' && account.status !== 'suspended') return false;
-		if (filterColor !== 'all' && (account.labelColor || 'gray') !== filterColor) return false;
-		return true;
-	}));
+	let filteredAccounts = $derived((data.accounts || [])
+		.filter(account => {
+			if (currentTab === 'active' && (account.status !== 'active' || account.daysRemaining <= 0)) return false;
+			if (currentTab === 'expired' && (account.status !== 'active' || account.daysRemaining > 0)) return false;
+			if (currentTab === 'suspended' && account.status !== 'suspended') return false;
+			if (filterColor !== 'all' && (account.labelColor || 'gray') !== filterColor) return false;
+			return true;
+		})
+		.sort((a, b) => {
+			if (sortBy === 'latest') return b.id - a.id;
+			if (sortBy === 'oldest') return a.id - b.id;
+			if (sortBy === 'days_high') return b.daysRemaining - a.daysRemaining;
+			if (sortBy === 'days_low') return a.daysRemaining - b.daysRemaining;
+			return 0;
+		})
+	);
 </script>
 
 <svelte:head>
@@ -61,17 +71,28 @@
 		</button>
 	</nav>
 	
-	<div class="flex items-center gap-2">
-		<label class="text-xs text-gray-400 font-medium">Filter Color:</label>
-		<select bind:value={filterColor} class="bg-gray-900 border border-gray-700 text-gray-300 text-xs rounded-lg focus:ring-emerald-500 focus:border-emerald-500 block p-1.5 cursor-pointer">
-			<option value="all">All</option>
-			<option value="gray">Gray (Default)</option>
-			<option value="red">Red</option>
-			<option value="blue">Blue</option>
-			<option value="green">Green</option>
-			<option value="purple">Purple</option>
-			<option value="orange">Orange</option>
-		</select>
+	<div class="flex items-center gap-4">
+		<div class="flex items-center gap-2">
+			<label class="text-xs text-gray-400 font-medium">Sort By:</label>
+			<select bind:value={sortBy} class="bg-gray-900 border border-gray-700 text-gray-300 text-xs rounded-lg focus:ring-emerald-500 focus:border-emerald-500 block p-1.5 cursor-pointer">
+				<option value="latest">Latest First</option>
+				<option value="oldest">Oldest First</option>
+				<option value="days_high">Remaining Days (High to Low)</option>
+				<option value="days_low">Remaining Days (Low to High)</option>
+			</select>
+		</div>
+		<div class="flex items-center gap-2">
+			<label class="text-xs text-gray-400 font-medium">Filter Color:</label>
+			<select bind:value={filterColor} class="bg-gray-900 border border-gray-700 text-gray-300 text-xs rounded-lg focus:ring-emerald-500 focus:border-emerald-500 block p-1.5 cursor-pointer">
+				<option value="all">All</option>
+				<option value="gray">Gray (Default)</option>
+				<option value="red">Red</option>
+				<option value="blue">Blue</option>
+				<option value="green">Green</option>
+				<option value="purple">Purple</option>
+				<option value="orange">Orange</option>
+			</select>
+		</div>
 	</div>
 </div>
 
@@ -90,11 +111,11 @@
 			<tbody class="divide-y divide-gray-800">
 				{#each filteredAccounts as account}
 					<tr 
-						class="hover:bg-gray-800/50 transition-colors cursor-pointer"
+						class="hover:bg-gray-800/50 transition-colors cursor-pointer relative"
+						style="border-left: 4px solid {account.labelColor || 'gray'};"
 						onclick={() => goto(`/dashboard/account/${account.id}`)}
 					>
 						<td class="px-6 py-4 whitespace-nowrap flex items-center gap-3">
-							<div class="w-3 h-3 rounded-full flex-shrink-0 shadow-sm" style="background-color: {account.labelColor || 'gray'};"></div>
 							<div>
 								<span class="text-sm font-medium text-emerald-400">{account.name}</span>
 								<div class="text-xs text-gray-500">ID: {account.id}</div>
