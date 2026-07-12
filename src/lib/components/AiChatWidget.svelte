@@ -2,18 +2,33 @@
 	let isOpen = $state(false);
 	let inputMessage = $state('');
 	let loading = $state(false);
+	let apiStatus = $state('CHECKING...'); // 'CHECKING...', 'ONLINE', 'DEAD'
 
 	let messages = $state([
 		{
 			role: 'assistant',
-			text: '### 👋 Welcome to InstantFlow AI Inspector\nI have read-only inspection access to your SAAS database. Ask me anything about **Revenue**, **Client Workspaces**, **Server Health**, or **Failure Logs**!'
+			text: '### 👋 InstantFlow Live AI Inspector\nConnected to **Google Gemini 1.5 Flash**. Ask me anything about your real database records, revenue, or system errors!'
 		}
 	]);
 
 	let chatContainer;
 
+	async function checkApiStatus() {
+		apiStatus = 'CHECKING...';
+		try {
+			const res = await fetch('/api/ai/status');
+			const data = await res.json();
+			apiStatus = data.status || 'DEAD';
+		} catch (err) {
+			apiStatus = 'DEAD';
+		}
+	}
+
 	function toggleChat() {
 		isOpen = !isOpen;
+		if (isOpen) {
+			checkApiStatus();
+		}
 	}
 
 	async function sendMessage(textToSend = null) {
@@ -32,22 +47,26 @@
 			const response = await fetch('/api/ai/chat', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ message: msg, history: messages })
+				body: JSON.stringify({ message: msg })
 			});
 
 			const data = await response.json();
+			if (data.apiStatus) {
+				apiStatus = data.apiStatus;
+			}
 			if (data.reply) {
 				messages = [...messages, { role: 'assistant', text: data.reply }];
 			} else {
 				messages = [
 					...messages,
-					{ role: 'assistant', text: '⚠️ Error: Could not generate response.' }
+					{ role: 'assistant', text: '### 🔴 API Status: DEAD\nNo reply received from server.' }
 				];
 			}
 		} catch (err) {
+			apiStatus = 'DEAD';
 			messages = [
 				...messages,
-				{ role: 'assistant', text: '⚠️ Connection error while reaching AI Inspector.' }
+				{ role: 'assistant', text: `### 🔴 Connection Error (DEAD)\nCould not reach \`/api/ai/chat\`: \`${err.message}\`` }
 			];
 		} finally {
 			loading = false;
@@ -85,24 +104,35 @@
 	{#if isOpen}
 		<div
 			class="w-80 sm:w-96 bg-gray-900 border border-gray-800 rounded-2xl shadow-2xl flex flex-col overflow-hidden transition-all duration-300"
-			style="height: 520px;"
+			style="height: 540px;"
 		>
-			<!-- HEADER -->
+			<!-- HEADER WITH LIVE API ONLINE/DEAD STATUS -->
 			<div
 				class="px-4 py-3 bg-gray-950 border-b border-gray-800 flex justify-between items-center"
 			>
 				<div class="flex items-center gap-2.5">
-					<div class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></div>
+					<div
+						class="w-2.5 h-2.5 rounded-full {apiStatus === 'ONLINE'
+							? 'bg-emerald-400 animate-ping'
+							: apiStatus === 'DEAD'
+							? 'bg-red-500'
+							: 'bg-amber-400 animate-pulse'}"
+					></div>
 					<div>
-						<h3 class="text-sm font-bold text-white flex items-center gap-2">
-							InstantFlow AI
+						<div class="flex items-center gap-2">
+							<h3 class="text-sm font-bold text-white">InstantFlow AI</h3>
 							<span
-								class="px-1.5 py-0.5 text-[9px] font-extrabold rounded bg-blue-900/50 text-blue-300 border border-blue-500/40"
+								class="px-1.5 py-0.5 text-[9px] font-extrabold rounded uppercase tracking-wider {apiStatus ===
+								'ONLINE'
+									? 'bg-emerald-950 text-emerald-300 border border-emerald-500/50'
+									: apiStatus === 'DEAD'
+									? 'bg-red-950 text-red-300 border border-red-500/50'
+									: 'bg-gray-800 text-gray-300'}"
 							>
-								READ-ONLY
+								API: {apiStatus}
 							</span>
-						</h3>
-						<p class="text-[10px] text-gray-400">Live Database Inspector</p>
+						</div>
+						<p class="text-[10px] text-gray-400">Google Gemini 1.5 Flash (Live)</p>
 					</div>
 				</div>
 				<button
@@ -166,7 +196,6 @@
 								: 'bg-gray-800 border border-gray-700/80 text-gray-200 rounded-bl-none'}"
 						>
 							{#if m.role === 'assistant'}
-								<!-- Render basic linebreaks -->
 								<div class="whitespace-pre-wrap">{m.text}</div>
 							{:else}
 								<div>{m.text}</div>
@@ -186,7 +215,7 @@
 						<span
 							class="w-2 h-2 rounded-full bg-emerald-400 animate-bounce [animation-delay:0.4s]"
 						></span>
-						<span class="text-[11px] ml-1">Inspecting live system state...</span>
+						<span class="text-[11px] ml-1">Querying live Gemini 1.5 Flash...</span>
 					</div>
 				{/if}
 			</div>
@@ -202,7 +231,7 @@
 				<input
 					type="text"
 					bind:value={inputMessage}
-					placeholder="Ask AI Inspector..."
+					placeholder="Ask live Gemini AI..."
 					class="flex-1 bg-gray-900 border border-gray-800 rounded-lg px-3 py-2 text-xs text-white focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
 				/>
 				<button
