@@ -18,57 +18,47 @@ export async function GET() {
 	}
 
 	try {
-		// First try standard flash model
-		let modelName = 'gemini-1.5-flash';
-		let url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
+		const candidateModels = [
+			'gemini-1.5-flash',
+			'gemini-1.5-flash-8b',
+			'gemini-2.0-flash',
+			'gemini-1.5-pro'
+		];
 
-		let geminiRes = await fetch(url, {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({
-				contents: [{ parts: [{ text: 'ping' }] }]
-			})
-		});
+		let lastRes = null;
+		let lastErrText = '';
 
-		// If 404 Model Not Found, dynamically discover available models for this key
-		if (geminiRes.status === 404) {
-			const listRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
-			if (listRes.ok) {
-				const listData = await listRes.json();
-				const availableModels = listData.models || [];
-				const validModel = availableModels.find(
-					(m) =>
-						m.supportedGenerationMethods?.includes('generateContent') &&
-						m.name?.includes('gemini')
-				);
-				if (validModel) {
-					modelName = validModel.name.replace('models/', '');
-					url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
-					geminiRes = await fetch(url, {
-						method: 'POST',
-						headers: { 'Content-Type': 'application/json' },
-						body: JSON.stringify({
-							contents: [{ parts: [{ text: 'ping' }] }]
-						})
+		for (const modelName of candidateModels) {
+			const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
+			try {
+				const geminiRes = await fetch(url, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						contents: [{ parts: [{ text: 'ping' }] }]
+					})
+				});
+
+				if (geminiRes.ok) {
+					return json({
+						status: 'ONLINE',
+						model: modelName,
+						message: `Google Gemini API (${modelName}) is online and responding accurately.`
 					});
 				}
-			}
+				lastRes = geminiRes;
+				lastErrText = await geminiRes.text();
+				if (![503, 429, 404].includes(geminiRes.status)) {
+					break;
+				}
+			} catch (e) {}
 		}
 
-		if (geminiRes.ok) {
-			return json({
-				status: 'ONLINE',
-				model: modelName,
-				message: `Google Gemini API (${modelName}) is online and responding accurately.`
-			});
-		} else {
-			const errText = await geminiRes.text();
-			return json({
-				status: 'DEAD',
-				httpStatus: geminiRes.status,
-				message: `Gemini API responded with HTTP ${geminiRes.status}: ${errText.substring(0, 150)}`
-			});
-		}
+		return json({
+			status: 'DEAD',
+			httpStatus: lastRes?.status || 500,
+			message: `Gemini API Error (${lastRes?.status}): ${lastErrText.substring(0, 150)}`
+		});
 	} catch (err) {
 		return json({
 			status: 'DEAD',

@@ -74,66 +74,56 @@ User Query: "${message}"
 
 Answer accurately, concisely, and professionally based strictly on the real context above. Use clear Markdown headings and bullet points.`;
 
-		let modelName = 'gemini-1.5-flash';
-		let url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
+		// GOOGLE GEMINI MULTI-MODEL AUTO-FALLBACK (to overcome 503 High Demand spikes)
+		const candidateModels = [
+			'gemini-1.5-flash',
+			'gemini-1.5-flash-8b',
+			'gemini-2.0-flash',
+			'gemini-1.5-pro'
+		];
 
-		let geminiRes = await fetch(url, {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({
-				contents: [{ parts: [{ text: prompt }] }]
-			})
-		});
+		let lastRes = null;
+		let lastErrorText = '';
 
-		// If 404 Model Not Found, dynamically discover available models for this key
-		if (geminiRes.status === 404) {
-			const listRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
-			if (listRes.ok) {
-				const listData = await listRes.json();
-				const availableModels = listData.models || [];
-				const validModel = availableModels.find(
-					(m) =>
-						m.supportedGenerationMethods?.includes('generateContent') &&
-						m.name?.includes('gemini')
-				);
-				if (validModel) {
-					modelName = validModel.name.replace('models/', '');
-					url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
-					geminiRes = await fetch(url, {
-						method: 'POST',
-						headers: { 'Content-Type': 'application/json' },
-						body: JSON.stringify({
-							contents: [{ parts: [{ text: prompt }] }]
-						})
-					});
+		for (const modelName of candidateModels) {
+			const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
+			try {
+				const res = await fetch(url, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						contents: [{ parts: [{ text: prompt }] }]
+					})
+				});
+
+				if (res.ok) {
+					const geminiData = await res.json();
+					const replyText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text;
+					if (replyText) {
+						return json({
+							apiStatus: 'ONLINE',
+							reply: replyText
+						});
+					}
 				}
+
+				lastRes = res;
+				lastErrorText = await res.text();
+
+				// If error is not 503 (High demand) or 429 (Rate limit) or 404 (Not found), stop retry
+				if (![503, 429, 404].includes(res.status)) {
+					break;
+				}
+			} catch (err) {
+				console.error(`Error trying model ${modelName}:`, err);
 			}
 		}
 
-		if (!geminiRes.ok) {
-			const errorText = await geminiRes.text();
-			console.error('Gemini API HTTP Error:', geminiRes.status, errorText);
-			return json({
-				apiStatus: 'DEAD',
-				reply: `### 🔴 Google Gemini API Request Failed (DEAD)\n` +
-					`Google Gemini responded with HTTP **${geminiRes.status}**.\n\n` +
-					`**Error Output:**\n\`\`\`json\n${errorText.substring(0, 500)}\n\`\`\``
-			});
-		}
-
-		const geminiData = await geminiRes.json();
-		const replyText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text;
-
-		if (!replyText) {
-			return json({
-				apiStatus: 'DEAD',
-				reply: `### 🔴 Empty Gemini Response\nGoogle Gemini returned an empty payload.\n\`\`\`json\n${JSON.stringify(geminiData)}\n\`\`\``
-			});
-		}
-
 		return json({
-			apiStatus: 'ONLINE',
-			reply: replyText
+			apiStatus: 'DEAD',
+			reply: `### 🔴 Google Gemini API Busy / Unavailable\n` +
+				`All Gemini models returned status **${lastRes?.status || 'ERROR'}**.\n\n` +
+				`**Last Error Details:**\n\`\`\`json\n${lastErrorText.substring(0, 400)}\n\`\`\``
 		});
 	} catch (err) {
 		console.error("AI Chat API Error:", err);
