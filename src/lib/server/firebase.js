@@ -247,6 +247,32 @@ export class FirebaseAdmin {
 	}
 
 	// -------------------------------------------------------------------------
+	// LOANS MANAGEMENT
+	// -------------------------------------------------------------------------
+
+	static async getLoans() {
+		const snapshot = await db.collection('loans').orderBy('timestamp', 'desc').get();
+		const loans = [];
+		snapshot.forEach(doc => loans.push({ id: doc.id, ...doc.data() }));
+		return loans;
+	}
+
+	static async addLoan(personName, amount, note, addedBy) {
+		const docRef = db.collection('loans').doc();
+		await docRef.set({
+			personName,
+			amount,
+			note,
+			addedBy,
+			timestamp: new Date().toISOString()
+		});
+	}
+
+	static async deleteLoan(id) {
+		await db.collection('loans').doc(id).delete();
+	}
+
+	// -------------------------------------------------------------------------
 	// GLOBAL EXPENSES (APPLICATION FEES)
 	// -------------------------------------------------------------------------
 
