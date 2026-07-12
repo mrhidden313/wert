@@ -3,9 +3,6 @@ import { FirebaseAdmin } from '$lib/server/firebase';
 import { fail } from '@sveltejs/kit';
 
 export async function load({ locals }) {
-	const currentAdminEmail = locals.adminEmail || 'Unknown';
-	const isMasterAdmin = currentAdminEmail.toLowerCase().includes('mrhidden') || currentAdminEmail.toLowerCase().includes('salar');
-
 	try {
 		// 1. Get Total Revenue
 		const chatwoot = new ChatwootAPI();
@@ -36,34 +33,27 @@ export async function load({ locals }) {
 		const expenses = await FirebaseAdmin.getExpenses();
 		const totalExpenses = expenses.reduce((sum, exp) => sum + exp.amount, 0);
 
-		// 3. Get Admin Profiles (Uzair & Farman)
+		// 3. Get Admin Profiles (Dynamic)
 		const allProfiles = await FirebaseAdmin.getAdminProfiles();
 		const profilesArray = Object.values(allProfiles);
-		let farmanProfile = profilesArray.find(p => p.email?.toLowerCase().includes('farman')) || { email: 'Farman', networth: 0, totalPaid: 0 };
-		let uzairProfile = profilesArray.find(p => p.email?.toLowerCase().includes('uzair')) || { email: 'Uzair', networth: 0, totalPaid: 0 };
+		const adminsList = profilesArray.map(p => ({
+			email: p.email,
+			networth: p.networth || 0,
+			paid: p.totalPaid || 0,
+			pending: (p.networth || 0) - (p.totalPaid || 0)
+		}));
 
 		// 4. Get Loans
 		const loans = await FirebaseAdmin.getLoans();
 		const totalLoans = loans.reduce((sum, loan) => sum + loan.amount, 0);
 
 		return {
-			isMasterAdmin,
+			isMasterAdmin: true, // Show all UI to everyone
 			totalRevenue,
 			totalExpenses,
 			totalLoans,
 			loans,
-			admins: {
-				farman: {
-					networth: farmanProfile.networth || 0,
-					paid: farmanProfile.totalPaid || 0,
-					pending: (farmanProfile.networth || 0) - (farmanProfile.totalPaid || 0)
-				},
-				uzair: {
-					networth: uzairProfile.networth || 0,
-					paid: uzairProfile.totalPaid || 0,
-					pending: (uzairProfile.networth || 0) - (uzairProfile.totalPaid || 0)
-				}
-			}
+			adminsList
 		};
 	} catch (err) {
 		console.error("Finance Page Load Error:", err);

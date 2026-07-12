@@ -12,8 +12,6 @@
 	let totalExpenses = $derived(data.totalExpenses || 0);
 	let totalLoans = $derived(data.totalLoans || 0);
 	
-	let farman = $derived(data.admins?.farman || { networth: 0, paid: 0, pending: 0 });
-	let uzair = $derived(data.admins?.uzair || { networth: 0, paid: 0, pending: 0 });
 	let loans = $derived(data.loans || []);
 </script>
 
@@ -57,47 +55,27 @@
 <!-- ADMIN SHARES -->
 <h2 class="text-xl font-bold text-white mb-4">Admin Shares</h2>
 <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-	<!-- Uzair Card -->
-	<div class="bg-gray-900 border border-gray-800 rounded-xl shadow-sm overflow-hidden">
-		<div class="px-6 py-4 border-b border-gray-800 flex items-center justify-between">
-			<h3 class="font-bold text-white text-lg">Uzair</h3>
-		</div>
-		<div class="p-6 space-y-4">
-			<div class="flex justify-between items-center">
-				<span class="text-gray-400 text-sm">Total Networth</span>
-				<span class="text-white font-bold">Rs {uzair.networth.toLocaleString()}</span>
+	{#each data.adminsList as admin}
+		<div class="bg-gray-900 border border-gray-800 rounded-xl shadow-sm overflow-hidden">
+			<div class="px-6 py-4 border-b border-gray-800 flex items-center justify-between">
+				<h3 class="font-bold text-white text-lg">{admin.email}</h3>
 			</div>
-			<div class="flex justify-between items-center">
-				<span class="text-gray-400 text-sm">Total Paid</span>
-				<span class="text-emerald-400 font-bold">Rs {uzair.paid.toLocaleString()}</span>
-			</div>
-			<div class="pt-4 border-t border-gray-800 flex justify-between items-center">
-				<span class="text-gray-400 text-sm font-medium">Pending (Bakaya)</span>
-				<span class="text-orange-400 font-bold text-lg">Rs {uzair.pending.toLocaleString()}</span>
-			</div>
-		</div>
-	</div>
-
-	<!-- Farman Card -->
-	<div class="bg-gray-900 border border-gray-800 rounded-xl shadow-sm overflow-hidden">
-		<div class="px-6 py-4 border-b border-gray-800 flex items-center justify-between">
-			<h3 class="font-bold text-white text-lg">Farman</h3>
-		</div>
-		<div class="p-6 space-y-4">
-			<div class="flex justify-between items-center">
-				<span class="text-gray-400 text-sm">Total Networth</span>
-				<span class="text-white font-bold">Rs {farman.networth.toLocaleString()}</span>
-			</div>
-			<div class="flex justify-between items-center">
-				<span class="text-gray-400 text-sm">Total Paid</span>
-				<span class="text-emerald-400 font-bold">Rs {farman.paid.toLocaleString()}</span>
-			</div>
-			<div class="pt-4 border-t border-gray-800 flex justify-between items-center">
-				<span class="text-gray-400 text-sm font-medium">Pending (Bakaya)</span>
-				<span class="text-orange-400 font-bold text-lg">Rs {farman.pending.toLocaleString()}</span>
+			<div class="p-6 space-y-4">
+				<div class="flex justify-between items-center">
+					<span class="text-gray-400 text-sm">Total Networth</span>
+					<span class="text-white font-bold">Rs {admin.networth.toLocaleString()}</span>
+				</div>
+				<div class="flex justify-between items-center">
+					<span class="text-gray-400 text-sm">Total Paid</span>
+					<span class="text-emerald-400 font-bold">Rs {admin.paid.toLocaleString()}</span>
+				</div>
+				<div class="pt-4 border-t border-gray-800 flex justify-between items-center">
+					<span class="text-gray-400 text-sm font-medium">Pending (Bakaya)</span>
+					<span class="text-orange-400 font-bold text-lg">Rs {admin.pending.toLocaleString()}</span>
+				</div>
 			</div>
 		</div>
-	</div>
+	{/each}
 </div>
 
 <!-- LOANS SECTION -->
