@@ -147,8 +147,34 @@ export class ChatwootAPI {
 		try {
 			const now = Math.floor(Date.now() / 1000);
 			const thirtyDaysAgo = now - (30 * 24 * 60 * 60);
-			const response = await this._request('GET', `/api/v2/accounts/${accountId}/reports/summary?since=${thirtyDaysAgo}&until=${now}`);
-			return response;
+			let summary = null;
+			try {
+				summary = await this._request('GET', `/api/v2/accounts/${accountId}/reports/summary?type=account&since=${thirtyDaysAgo}&until=${now}`);
+			} catch (e) {
+				// ignore summary fetch error
+			}
+
+			let conversationsCount = Number(summary?.conversations_count || 0);
+			let incomingCount = Number(summary?.incoming_messages_count || 0);
+			let outgoingCount = Number(summary?.outgoing_messages_count || 0);
+
+			// Also check actual conversations meta if report returned 0
+			if (conversationsCount === 0) {
+				try {
+					const metaRes = await this._request('GET', `/api/v1/accounts/${accountId}/conversations/meta`);
+					if (metaRes && metaRes.meta && metaRes.meta.all_count !== undefined) {
+						conversationsCount = Number(metaRes.meta.all_count || 0);
+					}
+				} catch (e) {
+					// ignore
+				}
+			}
+
+			return {
+				incoming_messages_count: incomingCount,
+				outgoing_messages_count: outgoingCount,
+				conversations_count: conversationsCount
+			};
 		} catch (err) {
 			console.error(`Failed to fetch reports for account ${accountId}:`, err.message);
 			return null;
