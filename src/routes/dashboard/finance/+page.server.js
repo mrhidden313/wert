@@ -38,8 +38,9 @@ export async function load({ locals }) {
 
 		// 3. Get Admin Profiles (Uzair & Farman)
 		const allProfiles = await FirebaseAdmin.getAdminProfiles();
-		let farmanProfile = allProfiles.find(p => p.email?.toLowerCase().includes('farman')) || { email: 'Farman', networth: 0, totalPaid: 0 };
-		let uzairProfile = allProfiles.find(p => p.email?.toLowerCase().includes('uzair')) || { email: 'Uzair', networth: 0, totalPaid: 0 };
+		const profilesArray = Object.values(allProfiles);
+		let farmanProfile = profilesArray.find(p => p.email?.toLowerCase().includes('farman')) || { email: 'Farman', networth: 0, totalPaid: 0 };
+		let uzairProfile = profilesArray.find(p => p.email?.toLowerCase().includes('uzair')) || { email: 'Uzair', networth: 0, totalPaid: 0 };
 
 		// 4. Get Loans
 		const loans = await FirebaseAdmin.getLoans();
