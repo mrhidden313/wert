@@ -83,6 +83,14 @@
 				Audit Logs
 			</a>
 
+			<a href="/dashboard/failure-logs" 
+				class="{$page.url.pathname === '/dashboard/failure-logs' ? 'bg-rose-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'} group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors">
+				<svg class="mr-3 h-5 w-5 text-gray-400 group-hover:text-gray-300" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+				</svg>
+				Failure Logs
+			</a>
+
 			<div class="p-4 border-t border-gray-800">
 				<form action="/logout" method="POST">
 					<button type="submit" class="w-full flex items-center px-4 py-2 text-sm text-red-400 hover:bg-red-500/10 rounded-lg transition-colors">

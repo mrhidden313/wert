@@ -1,4 +1,5 @@
 import { env } from '$env/dynamic/private';
+import { FirebaseAdmin } from '$lib/server/firebase';
 
 const CHATWOOT_BASE_URL = env.INSTANTFLOW_BASE_URL || 'https://api.instantflow.online';
 
@@ -29,6 +30,7 @@ export class ChatwootAPI {
 		if (!response.ok) {
 			let errorText = await response.text();
 			console.error(`Chatwoot API Error [${method} ${endpoint}]:`, response.status, errorText);
+			FirebaseAdmin.addFailureLog(response.status, `${method} ${endpoint}`, errorText, JSON.stringify(body || {}));
 			throw new Error(`Chatwoot API failed: ${response.status} - ${errorText.substring(0, 100)}`);
 		}
 
@@ -59,6 +61,7 @@ export class ChatwootAPI {
 		if (!response.ok) {
 			let errorText = await response.text();
 			console.error(`Chatwoot Bridge Error [${method} ${endpoint}]:`, response.status, errorText);
+			FirebaseAdmin.addFailureLog(response.status, `${method} ${endpoint}`, errorText, JSON.stringify(body || {}));
 			throw new Error(`Chatwoot Bridge failed: ${response.status} - ${errorText.substring(0, 100)}`);
 		}
 

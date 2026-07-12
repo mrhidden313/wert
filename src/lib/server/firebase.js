@@ -293,6 +293,59 @@ export class FirebaseAdmin {
 			timestamp: new Date().toISOString()
 		});
 	}
+
+	// -------------------------------------------------------------------------
+	// AUDIT LOGS & SYSTEM FAILURE LOGS
+	// -------------------------------------------------------------------------
+
+	static async getAuditLogs() {
+		try {
+			const snapshot = await db.collection('audit_logs').orderBy('timestamp', 'desc').limit(100).get();
+			const logs = [];
+			snapshot.forEach(doc => logs.push({ id: doc.id, ...doc.data() }));
+			return logs;
+		} catch (err) {
+			return [];
+		}
+	}
+
+	static async addAuditLog(adminEmail, action, details) {
+		try {
+			await db.collection('audit_logs').add({
+				adminEmail,
+				action,
+				details,
+				timestamp: new Date().toISOString()
+			});
+		} catch (err) {
+			console.error("Failed to add audit log:", err);
+		}
+	}
+
+	static async getFailureLogs() {
+		try {
+			const snapshot = await db.collection('failure_logs').orderBy('timestamp', 'desc').limit(150).get();
+			const logs = [];
+			snapshot.forEach(doc => logs.push({ id: doc.id, ...doc.data() }));
+			return logs;
+		} catch (err) {
+			return [];
+		}
+	}
+
+	static async addFailureLog(errorCode, endpoint, fullError, context = '') {
+		try {
+			await db.collection('failure_logs').add({
+				errorCode: String(errorCode),
+				endpoint: String(endpoint),
+				fullError: String(fullError),
+				context: String(context),
+				timestamp: new Date().toISOString()
+			});
+		} catch (err) {
+			console.error("Failed to add failure log:", err);
+		}
+	}
 }
 
 export { db };
