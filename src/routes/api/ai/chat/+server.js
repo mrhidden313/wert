@@ -74,13 +74,21 @@ User Query: "${message}"
 
 Answer accurately, concisely, and professionally based strictly on the real context above. Use clear Markdown headings and bullet points.`;
 
-		// GOOGLE GEMINI MULTI-MODEL AUTO-FALLBACK (to overcome 503 High Demand spikes)
-		const candidateModels = [
-			'gemini-1.5-flash',
-			'gemini-1.5-flash-8b',
-			'gemini-2.0-flash',
-			'gemini-1.5-pro'
-		];
+		// 1. Dynamically discover all models supported by this API key via Google ListModels API
+		let candidateModels = [];
+		try {
+			const listRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+			if (listRes.ok) {
+				const listData = await listRes.json();
+				candidateModels = (listData.models || [])
+					.filter(m => m.supportedGenerationMethods?.includes('generateContent') && m.name?.toLowerCase().includes('gemini'))
+					.map(m => m.name.replace('models/', ''));
+			}
+		} catch (e) {}
+
+		if (candidateModels.length === 0) {
+			candidateModels = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash-latest', 'gemini-1.5-flash'];
+		}
 
 		let lastRes = null;
 		let lastErrorText = '';
@@ -110,7 +118,7 @@ Answer accurately, concisely, and professionally based strictly on the real cont
 				lastRes = res;
 				lastErrorText = await res.text();
 
-				// If error is not 503 (High demand) or 429 (Rate limit) or 404 (Not found), stop retry
+				// Only continue retry if server is busy (503/429) or model missing (404)
 				if (![503, 429, 404].includes(res.status)) {
 					break;
 				}
@@ -122,8 +130,8 @@ Answer accurately, concisely, and professionally based strictly on the real cont
 		return json({
 			apiStatus: 'DEAD',
 			reply: `### 🔴 Google Gemini API Busy / Unavailable\n` +
-				`All Gemini models returned status **${lastRes?.status || 'ERROR'}**.\n\n` +
-				`**Last Error Details:**\n\`\`\`json\n${lastErrorText.substring(0, 400)}\n\`\`\``
+				`All available Gemini models (${candidateModels.join(', ')}) returned errors.\n\n` +
+				`**Last Error (${lastRes?.status || 'ERROR'}):**\n\`\`\`json\n${lastErrorText.substring(0, 400)}\n\`\`\``
 		});
 	} catch (err) {
 		console.error("AI Chat API Error:", err);

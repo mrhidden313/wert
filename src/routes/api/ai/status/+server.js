@@ -18,12 +18,20 @@ export async function GET() {
 	}
 
 	try {
-		const candidateModels = [
-			'gemini-1.5-flash',
-			'gemini-1.5-flash-8b',
-			'gemini-2.0-flash',
-			'gemini-1.5-pro'
-		];
+		let candidateModels = [];
+		try {
+			const listRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+			if (listRes.ok) {
+				const listData = await listRes.json();
+				candidateModels = (listData.models || [])
+					.filter(m => m.supportedGenerationMethods?.includes('generateContent') && m.name?.toLowerCase().includes('gemini'))
+					.map(m => m.name.replace('models/', ''));
+			}
+		} catch (e) {}
+
+		if (candidateModels.length === 0) {
+			candidateModels = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash-latest', 'gemini-1.5-flash'];
+		}
 
 		let lastRes = null;
 		let lastErrText = '';

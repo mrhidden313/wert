@@ -132,7 +132,7 @@
 								API: {apiStatus}
 							</span>
 						</div>
-						<p class="text-[10px] text-gray-400">Google Gemini 1.5 Flash (Live)</p>
+						<p class="text-[10px] text-gray-400">Google Gemini 2.5 Flash (Live)</p>
 					</div>
 				</div>
 				<button
