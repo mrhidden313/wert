@@ -38,8 +38,8 @@ export async function load({ locals }) {
 
 		// 3. Get Admin Profiles (Uzair & Farman)
 		const allProfiles = await FirebaseAdmin.getAdminProfiles();
-		let farmanProfile = allProfiles.find(p => p.email.toLowerCase().includes('farman')) || { email: 'Farman', networth: 0, totalPaid: 0 };
-		let uzairProfile = allProfiles.find(p => p.email.toLowerCase().includes('uzair')) || { email: 'Uzair', networth: 0, totalPaid: 0 };
+		let farmanProfile = allProfiles.find(p => p.email?.toLowerCase().includes('farman')) || { email: 'Farman', networth: 0, totalPaid: 0 };
+		let uzairProfile = allProfiles.find(p => p.email?.toLowerCase().includes('uzair')) || { email: 'Uzair', networth: 0, totalPaid: 0 };
 
 		// 4. Get Loans
 		const loans = await FirebaseAdmin.getLoans();
@@ -66,7 +66,7 @@ export async function load({ locals }) {
 		};
 	} catch (err) {
 		console.error("Finance Page Load Error:", err);
-		return { error: 'Failed to load finance data' };
+		return { error: `Failed to load finance data: ${err.message}` };
 	}
 }
 
