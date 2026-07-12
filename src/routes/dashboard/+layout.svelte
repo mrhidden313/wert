@@ -1,5 +1,6 @@
 <script>
 	import { page } from '$app/stores';
+	import AiChatWidget from '$lib/components/AiChatWidget.svelte';
 	let { children } = $props();
 </script>
 
@@ -116,4 +117,6 @@
 			{@render children()}
 		</main>
 	</div>
+
+	<AiChatWidget />
 </div>
