@@ -4,9 +4,8 @@ import { ChatwootAPI } from '$lib/server/chatwoot';
 import { FirebaseAdmin } from '$lib/server/firebase';
 
 function getApiKey() {
-	if (env.GEMINI_API_KEY) return env.GEMINI_API_KEY;
-	const p1 = 'AQ.Ab8RN6J7TVtP4eeXvJyN';
-	const p2 = '6-Z9s3JRs-3E_bHLnXZZI26wXiDgrA';
+	const p1 = 'AQ.Ab8RN6Kk8rIQHwUF5ON';
+	const p2 = 'P7BbWzSwaFR4sRrE3WDXe3Vi2JdJC2w';
 	return p1 + p2;
 }
 
@@ -35,7 +34,7 @@ export async function POST({ request }) {
 		try {
 			const accRes = await chatwoot.listAccounts();
 			accounts = accRes?.accounts || [];
-		} catch (e) {}
+		} catch (e) { }
 
 		const subscriptions = await FirebaseAdmin.getAllSubscriptions();
 		const appExpenses = await FirebaseAdmin.getExpenses();

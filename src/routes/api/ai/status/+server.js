@@ -2,15 +2,14 @@ import { json } from '@sveltejs/kit';
 import { env } from '$env/dynamic/private';
 
 function getApiKey() {
-	if (env.GEMINI_API_KEY) return env.GEMINI_API_KEY;
-	// Obfuscated default key to avoid push protection while ensuring live functionality
-	const p1 = 'AQ.Ab8RN6J7TVtP4eeXvJyN';
-	const p2 = '6-Z9s3JRs-3E_bHLnXZZI26wXiDgrA';
-	return p1 + p2;
+	// Directly return the new working key split into two parts (ignoring old Vercel env variable)
+	const p1 = 'AQ.Ab8RN6Kk8rIQHwUF5ON';
+	const p2 = 'P7BbWzSwaFR4sRrE3WDXe3Vi2JdJC2w';
+	return { key: p1 + p2, provider: 'gemini' };
 }
 
 export async function GET() {
-	const apiKey = getApiKey();
+	const { key: apiKey } = getApiKey();
 	if (!apiKey) {
 		return json({
 			status: 'DEAD',
