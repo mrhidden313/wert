@@ -53,6 +53,15 @@
 	</div>
 </div>
 
+{#if !health.isLiveBridge}
+	<div class="mb-6 p-4 rounded-xl bg-amber-950/40 border border-amber-800/80 text-amber-300 text-sm flex items-center justify-between">
+		<div>
+			<span class="font-bold">⚠️ VPS Telemetry Endpoint Not Mounted:</span>
+			<span>To view live CPU, RAM, Disk & Processes, mount <code class="bg-amber-950 px-1.5 py-0.5 rounded font-mono">/super_admin/bridge/server_health</code> on your Rails VPS backend. Currently showing live network ping latency only (0 static/fake numbers).</span>
+		</div>
+	</div>
+{/if}
+
 <!-- 4 TASK MANAGER GAUGES -->
 <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
 	<!-- CPU CARD -->
