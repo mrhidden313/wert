@@ -346,6 +346,29 @@ export class FirebaseAdmin {
 			console.error("Failed to add failure log:", err);
 		}
 	}
+
+	static async getGlobalMaintenance() {
+		try {
+			const doc = await db.collection('system_settings').doc('global').get();
+			return doc.exists ? Boolean(doc.data()?.globalMaintenance) : false;
+		} catch (err) {
+			console.error("Failed to fetch global maintenance status:", err);
+			return false;
+		}
+	}
+
+	static async setGlobalMaintenance(active) {
+		try {
+			await db.collection('system_settings').doc('global').set({
+				globalMaintenance: Boolean(active),
+				updatedAt: new Date().toISOString()
+			}, { merge: true });
+			return true;
+		} catch (err) {
+			console.error("Failed to update global maintenance status:", err);
+			return false;
+		}
+	}
 }
 
 export { db };
