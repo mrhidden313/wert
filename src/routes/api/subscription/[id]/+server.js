@@ -27,7 +27,8 @@ export async function GET({ params }) {
 
 		return json({ 
 			expired: isExpired,
-			daysRemaining: daysRemaining
+			daysRemaining: daysRemaining,
+			freeze: subscription.freeze || false
 		}, { headers: corsHeaders });
 
 	} catch (error) {

@@ -182,7 +182,7 @@
 								</button>
 							</div>
 						</td>
-						<td class="px-6 py-4 whitespace-nowrap flex flex-col gap-1 items-start">
+						<td class="px-6 py-4 whitespace-nowrap flex flex-col gap-1 items-start" onclick={(e) => e.stopPropagation()}>
 							{#if account.status === 'active'}
 								<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-900/30 text-blue-400 border border-blue-500/20">
 									Active
@@ -194,9 +194,18 @@
 							{/if}
 							
 							{#if account.freeze}
-								<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-orange-900/30 text-orange-400 border border-orange-500/20 mt-1">
-									App Frozen
-								</span>
+								<form method="POST" action="?/toggleFreeze" use:enhance class="m-0 mt-1">
+									<input type="hidden" name="accountId" value={account.id} />
+									<input type="hidden" name="freeze" value="false" />
+									<button 
+										type="submit" 
+										title="Click to Unfreeze App"
+										class="px-2.5 py-0.5 inline-flex items-center gap-1.5 text-xs leading-5 font-semibold rounded-full bg-orange-900/40 hover:bg-orange-900/80 text-orange-400 border border-orange-500/30 transition-all cursor-pointer shadow-sm"
+									>
+										<span>App Frozen</span>
+										<span class="text-[10px] bg-orange-500/20 px-1 rounded hover:bg-orange-500/40 font-bold">Unfreeze ×</span>
+									</button>
+								</form>
 							{/if}
 						</td>
 					</tr>

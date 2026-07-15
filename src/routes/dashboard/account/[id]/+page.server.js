@@ -51,7 +51,8 @@ export async function load({ params }) {
 				startup_fee: subscription.startup_fee || null,
 				monthly_fee_amount: subscription.monthly_fee_amount || 0,
 				pending_fees: subscription.pending_fees || [],
-				history: subscription.history || []
+				history: subscription.history || [],
+				freeze: subscription.freeze || false
 			}
 		};
 
