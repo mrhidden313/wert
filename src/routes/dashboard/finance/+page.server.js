@@ -69,7 +69,7 @@ export const actions = {
 		const note = data.get('note') || '';
 		
 		const currentAdminEmail = locals.adminEmail || 'Unknown';
-		const isMasterAdmin = currentAdminEmail.toLowerCase().includes('mrhidden') || currentAdminEmail.toLowerCase().includes('salar');
+		const isMasterAdmin = Boolean(currentAdminEmail && currentAdminEmail !== 'Unknown');
 		
 		if (!isMasterAdmin) return fail(403, { error: 'Unauthorized' });
 		if (amount <= 0) return fail(400, { error: 'Amount must be greater than 0' });
@@ -89,7 +89,7 @@ export const actions = {
 		const loanId = data.get('loanId');
 		
 		const currentAdminEmail = locals.adminEmail || 'Unknown';
-		const isMasterAdmin = currentAdminEmail.toLowerCase().includes('mrhidden') || currentAdminEmail.toLowerCase().includes('salar');
+		const isMasterAdmin = Boolean(currentAdminEmail && currentAdminEmail !== 'Unknown');
 		
 		if (!isMasterAdmin) return fail(403, { error: 'Unauthorized' });
 

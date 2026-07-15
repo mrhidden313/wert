@@ -2,8 +2,8 @@
 	import { enhance } from '$app/forms';
 	let { data, form } = $props();
 	
-	// Separate approvals into ones waiting for ME, and ones I sent waiting for OTHERS
-	let incomingApprovals = $derived((data.approvals || []).filter(a => a.receiverEmail === data.currentUserEmail || data.currentUserEmail === 'mrhiddenhacker313@gmail.com'));
+	// Both admins can see and approve pending transfers
+	let incomingApprovals = $derived(data.approvals || []);
 	let outgoingApprovals = $derived((data.approvals || []).filter(a => a.senderEmail === data.currentUserEmail && a.receiverEmail !== data.currentUserEmail));
 </script>
 

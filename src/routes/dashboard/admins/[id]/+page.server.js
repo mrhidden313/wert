@@ -4,7 +4,7 @@ import { fail } from '@sveltejs/kit';
 export async function load({ params, locals }) {
 	const adminEmail = params.id;
 	const currentAdminEmail = locals.adminEmail || 'Unknown';
-	const isMasterAdmin = currentAdminEmail.toLowerCase().includes('mrhidden') || currentAdminEmail.toLowerCase().includes('salar');
+	const isMasterAdmin = Boolean(currentAdminEmail && currentAdminEmail !== 'Unknown');
 
 	try {
 		const profile = await FirebaseAdmin.getAdminProfile(adminEmail);
@@ -45,7 +45,7 @@ export const actions = {
 		const receiverEmail = params.id;
 		
 		const currentAdminEmail = locals.adminEmail || 'Unknown';
-		const isMasterAdmin = currentAdminEmail.toLowerCase().includes('mrhidden') || currentAdminEmail.toLowerCase().includes('salar');
+		const isMasterAdmin = Boolean(currentAdminEmail && currentAdminEmail !== 'Unknown');
 		if (!isMasterAdmin) return fail(403, { error: 'Unauthorized' });
 
 		if (amount <= 0) return fail(400, { error: 'Amount must be greater than 0' });
@@ -66,7 +66,7 @@ export const actions = {
 		const receiverEmail = params.id;
 		
 		const currentAdminEmail = locals.adminEmail || 'Unknown';
-		const isMasterAdmin = currentAdminEmail.toLowerCase().includes('mrhidden') || currentAdminEmail.toLowerCase().includes('salar');
+		const isMasterAdmin = Boolean(currentAdminEmail && currentAdminEmail !== 'Unknown');
 		if (!isMasterAdmin) return fail(403, { error: 'Unauthorized' });
 
 		if (amount < 0) return fail(400, { error: 'Amount cannot be negative' });

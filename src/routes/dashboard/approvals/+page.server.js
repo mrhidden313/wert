@@ -29,8 +29,8 @@ export const actions = {
 		
 		const adminEmail = locals.adminEmail || 'Unknown';
 
-		// Ensure only the receiver or Super Admin can approve it
-		if (adminEmail !== receiverEmail && adminEmail !== 'mrhiddenhacker313@gmail.com') {
+		// Ensure only logged-in admins can approve
+		if (!adminEmail || adminEmail === 'Unknown') {
 			return fail(403, { error: 'You are not authorized to approve this transfer.' });
 		}
 
