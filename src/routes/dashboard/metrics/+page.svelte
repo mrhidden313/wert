@@ -41,9 +41,9 @@
 	<title>Usage Analytics - InstantFlow</title>
 </svelte:head>
 
-<div class="mb-8">
-	<h1 class="text-2xl font-bold text-white">Client Usage Analytics</h1>
-	<p class="text-gray-400 mt-1">
+<div class="mb-6">
+	<h1 class="text-xl sm:text-2xl font-bold text-white">Client Usage Analytics</h1>
+	<p class="text-gray-400 mt-1 text-sm">
 		Real-time message volume, conversations, and engagement metrics across all workspaces (Last 30 Days).
 	</p>
 </div>
@@ -55,37 +55,37 @@
 {/if}
 
 <!-- SYSTEM TOTALS CARDS -->
-<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-	<div class="bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-sm">
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 mb-8">
+	<div class="bg-gray-900 border border-gray-800 rounded-xl p-4 sm:p-6 shadow-sm">
 		<span class="text-gray-400 text-xs font-semibold uppercase tracking-wider block mb-1">
 			Total Messages
 		</span>
-		<span class="text-3xl font-extrabold text-white">{totalMessages.toLocaleString()}</span>
-		<div class="text-xs text-gray-500 mt-2">All sent & received volume</div>
+		<span class="text-2xl sm:text-3xl font-extrabold text-white">{totalMessages.toLocaleString()}</span>
+		<div class="text-xs text-gray-500 mt-2 hidden sm:block">All sent & received volume</div>
 	</div>
 
-	<div class="bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-sm">
+	<div class="bg-gray-900 border border-gray-800 rounded-xl p-4 sm:p-6 shadow-sm">
 		<span class="text-gray-400 text-xs font-semibold uppercase tracking-wider block mb-1">
-			Outgoing (Sent)
+			Outgoing
 		</span>
-		<span class="text-3xl font-extrabold text-emerald-400">{totalOutgoing.toLocaleString()}</span>
-		<div class="text-xs text-gray-500 mt-2">{outgoingPercent}% of total messages</div>
+		<span class="text-2xl sm:text-3xl font-extrabold text-emerald-400">{totalOutgoing.toLocaleString()}</span>
+		<div class="text-xs text-gray-500 mt-2 hidden sm:block">{outgoingPercent}% of total</div>
 	</div>
 
-	<div class="bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-sm">
+	<div class="bg-gray-900 border border-gray-800 rounded-xl p-4 sm:p-6 shadow-sm">
 		<span class="text-gray-400 text-xs font-semibold uppercase tracking-wider block mb-1">
-			Incoming (Received)
+			Incoming
 		</span>
-		<span class="text-3xl font-extrabold text-blue-400">{totalIncoming.toLocaleString()}</span>
-		<div class="text-xs text-gray-500 mt-2">{incomingPercent}% of total messages</div>
+		<span class="text-2xl sm:text-3xl font-extrabold text-blue-400">{totalIncoming.toLocaleString()}</span>
+		<div class="text-xs text-gray-500 mt-2 hidden sm:block">{incomingPercent}% of total</div>
 	</div>
 
-	<div class="bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-sm">
+	<div class="bg-gray-900 border border-gray-800 rounded-xl p-4 sm:p-6 shadow-sm">
 		<span class="text-gray-400 text-xs font-semibold uppercase tracking-wider block mb-1">
 			Conversations
 		</span>
-		<span class="text-3xl font-extrabold text-purple-400">{totalConversations.toLocaleString()}</span>
-		<div class="text-xs text-gray-500 mt-2">Active chat threads</div>
+		<span class="text-2xl sm:text-3xl font-extrabold text-purple-400">{totalConversations.toLocaleString()}</span>
+		<div class="text-xs text-gray-500 mt-2 hidden sm:block">Active chat threads</div>
 	</div>
 </div>
 
@@ -114,37 +114,37 @@
 			{/if}
 		</div>
 	</div>
-	<div class="flex justify-between items-center text-xs text-gray-400 mt-3">
+	<div class="flex flex-col sm:flex-row sm:justify-between items-start sm:items-center text-xs text-gray-400 mt-3 gap-2">
 		<div class="flex items-center gap-2">
 			<div class="w-3 h-3 rounded-full bg-emerald-500"></div>
-			<span>Outgoing (Sent by Clients / AI): <strong class="text-white">{totalOutgoing.toLocaleString()}</strong></span>
+			<span>Outgoing: <strong class="text-white">{totalOutgoing.toLocaleString()}</strong></span>
 		</div>
 		<div class="flex items-center gap-2">
 			<div class="w-3 h-3 rounded-full bg-blue-500"></div>
-			<span>Incoming (Received from Users): <strong class="text-white">{totalIncoming.toLocaleString()}</strong></span>
+			<span>Incoming: <strong class="text-white">{totalIncoming.toLocaleString()}</strong></span>
 		</div>
 	</div>
 </div>
 
 <!-- CONTROLS & TABLE -->
 <div class="bg-gray-900 border border-gray-800 rounded-xl shadow-sm overflow-hidden">
-	<div class="p-4 border-b border-gray-800 flex flex-col sm:flex-row justify-between items-center gap-4">
+	<div class="p-4 border-b border-gray-800 flex flex-col gap-3">
 		<input
 			type="text"
 			bind:value={searchQuery}
 			placeholder="Search workspace name or email..."
-			class="w-full sm:w-72 bg-gray-950 border border-gray-800 rounded-lg px-3 py-2 text-sm text-white focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+			class="w-full bg-gray-950 border border-gray-800 rounded-lg px-3 py-2 text-sm text-white focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
 		/>
-		<div class="flex items-center gap-2 w-full sm:w-auto justify-end">
+		<div class="flex items-center gap-2">
 			<label class="text-xs text-gray-400 font-medium">Sort By:</label>
 			<select
 				bind:value={sortBy}
 				class="bg-gray-950 border border-gray-800 text-gray-300 text-xs rounded-lg focus:ring-emerald-500 focus:border-emerald-500 block p-2 cursor-pointer"
 			>
-				<option value="total">Highest Total Messages</option>
-				<option value="sent">Most Messages Sent</option>
-				<option value="received">Most Messages Received</option>
-				<option value="conversations">Most Conversations</option>
+				<option value="total">Highest Total</option>
+				<option value="sent">Most Sent</option>
+				<option value="received">Most Received</option>
+				<option value="conversations">Conversations</option>
 			</select>
 		</div>
 	</div>

@@ -47,13 +47,13 @@
 	<title>System Failure Logs - InstantFlow</title>
 </svelte:head>
 
-<div class="mb-8">
-	<h1 class="text-2xl font-bold text-white flex items-center gap-3">
-		<span class="w-3 h-3 rounded-full bg-rose-500 animate-pulse"></span>
+<div class="mb-6">
+	<h1 class="text-xl sm:text-2xl font-bold text-white flex items-center gap-3">
+		<span class="w-3 h-3 rounded-full bg-rose-500 animate-pulse shrink-0"></span>
 		System Failure & Error Logs
 	</h1>
-	<p class="text-gray-400 mt-1">
-		Real-time failure capturing across Chatwoot APIs, Webhooks, and Bridge endpoints. Success logs are excluded.
+	<p class="text-gray-400 mt-1 text-sm">
+		Real-time failure capturing across Chatwoot APIs, Webhooks, and Bridge endpoints.
 	</p>
 </div>
 

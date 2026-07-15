@@ -43,7 +43,7 @@
 	</div>
 {/if}
 
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
 	<div class="lg:col-span-1 space-y-6">
 		<!-- Summary Card -->
 		<div class="bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-sm relative">
@@ -157,7 +157,7 @@
 <div class="mt-8 mb-8">
 	<h2 class="text-xl font-bold text-white mb-4">Admin Wallet</h2>
 	
-	<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+	<div class="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
 		<div class="bg-gray-900 border border-orange-500/30 rounded-xl p-6 shadow-sm flex justify-between items-center">
 			<div>
 				<h3 class="text-sm font-medium text-gray-400 uppercase tracking-wider mb-1">Total Pending</h3>

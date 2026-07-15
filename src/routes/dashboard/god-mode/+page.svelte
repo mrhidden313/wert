@@ -251,13 +251,13 @@
 	<title>GOD MODE - VPS Explorer</title>
 </svelte:head>
 
-<div class="mb-4 flex items-center justify-between" in:fade={{ duration: 300 }}>
+<div class="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3" in:fade={{ duration: 300 }}>
 	<div class="flex items-center gap-3">
 		<a href="/dashboard" class="text-gray-400 hover:text-white transition-colors">
 			<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
 		</a>
 		<div>
-			<h1 class="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-red-500 to-purple-500 tracking-wider">
+			<h1 class="text-xl sm:text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-red-500 to-purple-500 tracking-wider">
 				GOD MODE <span class="text-xs font-medium text-gray-500 tracking-normal align-top">VPS EXPLORER</span>
 			</h1>
 			<p class="text-gray-400 text-sm mt-1">Read-only file system access directly via Chatwoot Super Admin Auth.</p>
@@ -265,15 +265,15 @@
 	</div>
 
 	{#if isConnected}
-	<div class="flex items-center gap-3">
+	<div class="flex flex-wrap items-center gap-2 sm:gap-3">
 		<!-- Sort Controls -->
 		<div class="flex bg-gray-900 border border-gray-800 rounded-lg p-1">
-			<button onclick={() => { sortMode = 'name'; sortDirection = sortMode === 'name' ? sortDirection * -1 : 1; }} class="px-3 py-1.5 text-xs font-semibold rounded-md transition-colors {sortMode === 'name' ? 'bg-gray-800 text-white' : 'text-gray-500 hover:text-gray-300'}">Name {sortMode === 'name' ? (sortDirection === 1 ? '↓' : '↑') : ''}</button>
-			<button onclick={() => { sortMode = 'size'; sortDirection = sortMode === 'size' ? sortDirection * -1 : -1; }} class="px-3 py-1.5 text-xs font-semibold rounded-md transition-colors {sortMode === 'size' ? 'bg-gray-800 text-white' : 'text-gray-500 hover:text-gray-300'}">Size {sortMode === 'size' ? (sortDirection === 1 ? '↑' : '↓') : ''}</button>
-			<button onclick={() => { sortMode = 'date'; sortDirection = sortMode === 'date' ? sortDirection * -1 : -1; }} class="px-3 py-1.5 text-xs font-semibold rounded-md transition-colors {sortMode === 'date' ? 'bg-gray-800 text-white' : 'text-gray-500 hover:text-gray-300'}">Date {sortMode === 'date' ? (sortDirection === 1 ? '↑' : '↓') : ''}</button>
+			<button onclick={() => { sortMode = 'name'; sortDirection = sortMode === 'name' ? sortDirection * -1 : 1; }} class="px-2 sm:px-3 py-1.5 text-xs font-semibold rounded-md transition-colors {sortMode === 'name' ? 'bg-gray-800 text-white' : 'text-gray-500 hover:text-gray-300'}">Name {sortMode === 'name' ? (sortDirection === 1 ? '↓' : '↑') : ''}</button>
+			<button onclick={() => { sortMode = 'size'; sortDirection = sortMode === 'size' ? sortDirection * -1 : -1; }} class="px-2 sm:px-3 py-1.5 text-xs font-semibold rounded-md transition-colors {sortMode === 'size' ? 'bg-gray-800 text-white' : 'text-gray-500 hover:text-gray-300'}">Size {sortMode === 'size' ? (sortDirection === 1 ? '↑' : '↓') : ''}</button>
+			<button onclick={() => { sortMode = 'date'; sortDirection = sortMode === 'date' ? sortDirection * -1 : -1; }} class="px-2 sm:px-3 py-1.5 text-xs font-semibold rounded-md transition-colors {sortMode === 'date' ? 'bg-gray-800 text-white' : 'text-gray-500 hover:text-gray-300'}">Date {sortMode === 'date' ? (sortDirection === 1 ? '↑' : '↓') : ''}</button>
 		</div>
 
-		<button onclick={toggleStorage} class="px-4 py-2 bg-gray-900 border border-gray-800 hover:border-emerald-500 text-white text-sm font-semibold rounded-lg shadow-sm transition-all flex items-center gap-2">
+		<button onclick={toggleStorage} class="px-3 py-2 bg-gray-900 border border-gray-800 hover:border-emerald-500 text-white text-sm font-semibold rounded-lg shadow-sm transition-all flex items-center gap-2">
 			<svg class="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"></path></svg>
 			Storage
 		</button>

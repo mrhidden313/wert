@@ -10,9 +10,9 @@
 </svelte:head>
 
 <div class="max-w-3xl mx-auto">
-	<div class="mb-8">
-		<h1 class="text-2xl font-bold text-white">Build New Account</h1>
-		<p class="text-gray-400 mt-1">Create a new Chatwoot workspace and Firebase plan simultaneously.</p>
+	<div class="mb-6">
+		<h1 class="text-xl sm:text-2xl font-bold text-white">Build New Account</h1>
+		<p class="text-gray-400 mt-1 text-sm">Create a new Chatwoot workspace and Firebase plan simultaneously.</p>
 	</div>
 
 	<div class="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden shadow-sm">

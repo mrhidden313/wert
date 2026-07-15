@@ -19,10 +19,10 @@
 	<title>Finance Overview - InstantFlow</title>
 </svelte:head>
 
-<div class="mb-8 flex items-center justify-between">
+<div class="mb-6 flex items-center justify-between">
 	<div>
-		<h1 class="text-2xl font-bold text-white">Finance Overview</h1>
-		<p class="text-gray-400 mt-1">High-level view of company revenue, expenses, admin shares, and loans.</p>
+		<h1 class="text-xl sm:text-2xl font-bold text-white">Finance Overview</h1>
+		<p class="text-gray-400 mt-1 text-sm">High-level view of company revenue, expenses, admin shares, and loans.</p>
 	</div>
 </div>
 
@@ -38,7 +38,7 @@
 {/if}
 
 <!-- COMPANY AGGREGATES -->
-<div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 mb-8">
 	<div class="bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-sm">
 		<h3 class="text-sm font-medium text-gray-400 uppercase tracking-wider mb-2">Total Payments Received</h3>
 		<p class="text-4xl font-bold text-emerald-400">Rs {totalRevenue.toLocaleString()}</p>
