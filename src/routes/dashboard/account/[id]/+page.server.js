@@ -48,6 +48,18 @@ export async function load({ params }) {
 				planType: subscription.planType || 'Unknown',
 				daysRemaining: subscription.daysRemaining || 0,
 				phoneNumber: subscription.phoneNumber || 'N/A',
+				greeting_enabled: subscription.greeting_enabled !== false, // default true
+				allowed_inboxes: subscription.allowed_inboxes || {
+					whatsapp: true,
+					web_widget: true,
+					telegram: true,
+					api: true,
+					facebook: true,
+					sms: true,
+					email: true,
+					instagram: true,
+					line: true
+				},
 				startup_fee: subscription.startup_fee || null,
 				monthly_fee_amount: subscription.monthly_fee_amount || 0,
 				pending_fees: subscription.pending_fees || [],
@@ -313,6 +325,33 @@ export const actions = {
 			return { success: true, message: 'Account destroyed.' };
 		} catch (err) {
 			return fail(500, { error: 'Failed to destroy account' });
+		}
+	},
+
+	saveAllowedInboxes: async ({ request, params, locals }) => {
+		const data = await request.formData();
+		const accountId = params.id;
+		const adminEmail = locals.adminEmail || 'Unknown';
+
+		const allowed_inboxes = {
+			whatsapp: data.get('whatsapp') === 'true',
+			web_widget: data.get('web_widget') === 'true',
+			telegram: data.get('telegram') === 'true',
+			api: data.get('api') === 'true',
+			facebook: data.get('facebook') === 'true',
+			sms: data.get('sms') === 'true',
+			email: data.get('email') === 'true',
+			instagram: data.get('instagram') === 'true',
+			line: data.get('line') === 'true'
+		};
+
+		try {
+			await FirebaseAdmin.updateSubscription(accountId, { allowed_inboxes });
+			await FirebaseAdmin.addAuditLog(adminEmail, 'Save Allowed Inboxes', `Updated allowed inboxes for account ${accountId}`);
+			return { success: true, message: 'Allowed Inboxes updated successfully in Firebase!' };
+		} catch (error) {
+			console.error('Save Allowed Inboxes error:', error);
+			return fail(500, { error: 'Failed to save allowed inboxes' });
 		}
 	}
 };

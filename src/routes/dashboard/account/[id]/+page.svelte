@@ -348,6 +348,47 @@
 					</form>
 				</div>
 
+				<!-- Allowed Inboxes Panel -->
+				<div class="bg-gray-950 p-4 rounded-lg border border-gray-800">
+					<h3 class="text-xs font-medium text-gray-400 uppercase mb-3">Allowed Inboxes (Check to show to user)</h3>
+					<form method="POST" action="?/saveAllowedInboxes" use:enhance={() => {
+						loadingAction = `inboxes`;
+						return async ({ update }) => { await update(); loadingAction = null; };
+					}}>
+						<div class="flex flex-col space-y-2 mb-4">
+							{#each [
+								{ id: 'whatsapp', label: 'WhatsApp Cloud API' },
+								{ id: 'web_widget', label: 'Website Widget' },
+								{ id: 'telegram', label: 'Telegram Bot' },
+								{ id: 'api', label: 'API / Webhook Channel' },
+								{ id: 'facebook', label: 'Facebook Messenger' },
+								{ id: 'sms', label: 'SMS & Twilio' },
+								{ id: 'email', label: 'Email Forwarding' },
+								{ id: 'instagram', label: 'Instagram Direct' },
+								{ id: 'line', label: 'LINE Official Account' }
+							] as channel}
+								<label class="flex items-center space-x-2.5 text-sm text-gray-300 cursor-pointer">
+									<input
+										type="checkbox"
+										name={channel.id}
+										value="true"
+										checked={data.account.allowed_inboxes?.[channel.id] !== false}
+										class="w-4 h-4 rounded border-gray-700 bg-gray-900 text-emerald-500 focus:ring-emerald-500"
+									/>
+									<span>{channel.label}</span>
+								</label>
+							{/each}
+						</div>
+						<button
+							type="submit"
+							disabled={loadingAction === 'inboxes'}
+							class="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-sm font-semibold transition-colors disabled:opacity-50"
+						>
+							{loadingAction === 'inboxes' ? 'Saving Allowed Inboxes...' : 'Save Allowed Inboxes'}
+						</button>
+					</form>
+				</div>
+
 				<!-- Destroy -->
 				<div class="bg-gray-950 p-4 rounded-lg border border-red-900/30">
 					<h3 class="text-xs font-medium text-red-500 uppercase mb-2">Danger Zone</h3>
