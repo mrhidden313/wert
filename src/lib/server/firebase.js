@@ -369,6 +369,44 @@ export class FirebaseAdmin {
 			return false;
 		}
 	}
+
+	static async getUpgradeCelebration() {
+		try {
+			const doc = await db.collection('system_settings').doc('global').get();
+			if (!doc.exists) return { active: false, celebrationId: null, expiresAt: null };
+			const data = doc.data();
+			const expiresAt = Number(data?.celebrationExpiresAt || 0);
+			if (Boolean(data?.upgradeCelebration) && expiresAt > 0 && Date.now() > expiresAt) {
+				await FirebaseAdmin.setUpgradeCelebration(false, 0);
+				return { active: false, celebrationId: null, expiresAt: null };
+			}
+			return {
+				active: Boolean(data?.upgradeCelebration),
+				celebrationId: data?.celebrationId || null,
+				expiresAt: expiresAt > 0 ? expiresAt : null
+			};
+		} catch (err) {
+			console.error("Failed to fetch upgrade celebration status:", err);
+			return { active: false, celebrationId: null, expiresAt: null };
+		}
+	}
+
+	static async setUpgradeCelebration(active, durationHours = 0) {
+		try {
+			const celebrationId = active ? Date.now() : null;
+			const expiresAt = (active && durationHours > 0) ? (Date.now() + durationHours * 3600 * 1000) : null;
+			await db.collection('system_settings').doc('global').set({
+				upgradeCelebration: Boolean(active),
+				celebrationId: celebrationId,
+				celebrationExpiresAt: expiresAt,
+				updatedAt: new Date().toISOString()
+			}, { merge: true });
+			return { active: Boolean(active), celebrationId, expiresAt };
+		} catch (err) {
+			console.error("Failed to update upgrade celebration status:", err);
+			return { active: false, celebrationId: null, expiresAt: null };
+		}
+	}
 }
 
 export { db };
