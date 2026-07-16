@@ -350,7 +350,31 @@
 
 				<!-- Allowed Inboxes Panel -->
 				<div class="bg-gray-950 p-4 rounded-lg border border-gray-800">
-					<h3 class="text-xs font-medium text-gray-400 uppercase mb-3">Allowed Inboxes (Check to show to user)</h3>
+					<div class="flex flex-col sm:flex-row sm:items-center justify-between mb-3 gap-2">
+						<h3 class="text-xs font-medium text-gray-400 uppercase">Allowed Inboxes (Check to show to user)</h3>
+						<div class="flex items-center space-x-1.5">
+							<button
+								type="button"
+								onclick={() => {
+									document.querySelectorAll('.inbox-checkbox').forEach(cb => cb.checked = true);
+								}}
+								class="px-2.5 py-1 text-[11px] font-semibold bg-gray-900 hover:bg-gray-800 text-gray-300 rounded border border-gray-700 transition-colors"
+							>
+								Select All
+							</button>
+							<button
+								type="button"
+								onclick={() => {
+									document.querySelectorAll('.inbox-checkbox').forEach(cb => {
+										cb.checked = (cb.name === 'whatsapp');
+									});
+								}}
+								class="px-2.5 py-1 text-[11px] font-semibold bg-emerald-950/60 hover:bg-emerald-900/80 text-emerald-400 rounded border border-emerald-800/50 transition-colors"
+							>
+								Unselect All (Keep WhatsApp)
+							</button>
+						</div>
+					</div>
 					<form method="POST" action="?/saveAllowedInboxes" use:enhance={() => {
 						loadingAction = `inboxes`;
 						return async ({ update }) => { await update(); loadingAction = null; };
@@ -367,16 +391,30 @@
 								{ id: 'instagram', label: 'Instagram Direct' },
 								{ id: 'line', label: 'LINE Official Account' }
 							] as channel}
-								<label class="flex items-center space-x-2.5 text-sm text-gray-300 cursor-pointer">
-									<input
-										type="checkbox"
-										name={channel.id}
-										value="true"
-										checked={data.account.allowed_inboxes?.[channel.id] !== false}
-										class="w-4 h-4 rounded border-gray-700 bg-gray-900 text-emerald-500 focus:ring-emerald-500"
-									/>
-									<span>{channel.label}</span>
-								</label>
+								<div class="flex items-center justify-between p-2 rounded-lg hover:bg-gray-900/50 transition-colors">
+									<label class="flex items-center space-x-2.5 text-sm text-gray-300 cursor-pointer flex-1">
+										<input
+											type="checkbox"
+											name={channel.id}
+											value="true"
+											checked={channel.id === 'whatsapp' ? data.account.allowed_inboxes?.[channel.id] !== false : data.account.allowed_inboxes?.[channel.id] === true}
+											class="inbox-checkbox w-4 h-4 rounded border-gray-700 bg-gray-900 text-emerald-500 focus:ring-emerald-500"
+										/>
+										<span>{channel.label}</span>
+									</label>
+									<button
+										type="button"
+										onclick={() => {
+											document.querySelectorAll('.inbox-checkbox').forEach(cb => {
+												cb.checked = (cb.name === channel.id);
+											});
+										}}
+										class="px-2 py-0.5 text-[10.5px] font-medium text-gray-400 hover:text-emerald-400 hover:bg-gray-800/80 rounded border border-transparent hover:border-gray-700 transition-all ml-2"
+										title="Keep only {channel.label} selected and uncheck all others"
+									>
+										Only this
+									</button>
+								</div>
 							{/each}
 						</div>
 						<button

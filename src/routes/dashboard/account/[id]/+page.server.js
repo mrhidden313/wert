@@ -51,14 +51,14 @@ export async function load({ params }) {
 				greeting_enabled: subscription.greeting_enabled !== false, // default true
 				allowed_inboxes: subscription.allowed_inboxes || {
 					whatsapp: true,
-					web_widget: true,
-					telegram: true,
-					api: true,
-					facebook: true,
-					sms: true,
-					email: true,
-					instagram: true,
-					line: true
+					web_widget: false,
+					telegram: false,
+					api: false,
+					facebook: false,
+					sms: false,
+					email: false,
+					instagram: false,
+					line: false
 				},
 				startup_fee: subscription.startup_fee || null,
 				monthly_fee_amount: subscription.monthly_fee_amount || 0,
