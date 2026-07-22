@@ -21,7 +21,9 @@ export async function load({ locals }) {
 				if (matchingSubKey) sub = subscriptions[matchingSubKey];
 			}
 
-			if (sub) {
+			const isSuspended = acc.status === 'suspended' || sub?.status === 'suspended';
+
+			if (sub && !isSuspended) {
 				const startupPaid = sub.startup_fee?.paid || 0;
 				const paidFees = (sub.pending_fees || []).filter(f => f.paid === true);
 				const monthlyPaid = paidFees.reduce((sum, f) => sum + f.amount, 0);

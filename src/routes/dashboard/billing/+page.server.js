@@ -30,7 +30,9 @@ export async function load() {
 				if (matchingSubKey) sub = subscriptions[matchingSubKey];
 			}
 
-			if (sub) {
+			const isSuspended = acc.status === 'suspended' || sub?.status === 'suspended';
+
+			if (sub && !isSuspended) {
 				const startupRemaining = sub.startup_fee?.remaining || 0;
 				const startupPaid = sub.startup_fee?.paid || 0;
 				
