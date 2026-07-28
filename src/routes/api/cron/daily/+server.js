@@ -29,8 +29,9 @@ export async function GET({ request }) {
 			let updateData = { daysRemaining: currentDays };
 			let needsUpdate = true; // We almost always update to decrement the day
 			
-			// 2. Generate Invoice if days reach exactly 0 (or were already 0)
+			// 2. Auto-Freeze and Generate Invoice if days reach exactly 0 (or were already 0)
 			if (currentDays <= 0) {
+				updateData.freeze = true;
 				const monthlyFee = sub.monthly_fee_amount || 0;
 				
 				// Only generate if there's an actual fee configured
