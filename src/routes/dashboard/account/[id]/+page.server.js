@@ -169,27 +169,49 @@ export const actions = {
 
 		try {
 			const chatwoot = new ChatwootAPI();
-			const inboxes = await chatwoot.getAccountInboxes(accountId);
+			let inboxes = await chatwoot.getAccountInboxes(accountId);
+
+			// Fallback: Check bridge if standard inboxes response is empty
+			if (!inboxes || inboxes.length === 0) {
+				try {
+					const bridgeRes = await chatwoot._bridgeRequest('GET', `/super_admin/bridge/inboxes?account_id=${accountId}`);
+					if (Array.isArray(bridgeRes)) inboxes = bridgeRes;
+					else if (bridgeRes && Array.isArray(bridgeRes.inboxes)) inboxes = bridgeRes.inboxes;
+					else if (bridgeRes && Array.isArray(bridgeRes.payload)) inboxes = bridgeRes.payload;
+				} catch (e) {
+					// Ignore bridge route miss
+				}
+			}
 
 			const extractedNumbers = [];
 
-			inboxes.forEach(inbox => {
+			(inboxes || []).forEach(inbox => {
+				// 1. Direct fields
 				const directPhone = inbox.phone_number;
 				const channelPhone = inbox.channel?.phone_number;
-				const phone = directPhone || channelPhone;
+				// 2. Provider Config fields
+				const providerPhone = inbox.provider_config?.phone_number || inbox.channel?.provider_config?.phone_number;
+				// 3. Name regex extraction (e.g., "WhatsApp +923351199648" or "WA: 03351199648")
+				const nameMatch = inbox.name ? String(inbox.name).match(/(\+?[0-9]{10,15})/g) : null;
 
-				if (phone && typeof phone === 'string' && phone.trim()) {
-					const cleaned = phone.trim();
-					if (!extractedNumbers.includes(cleaned)) {
-						extractedNumbers.push(cleaned);
+				const candidates = [directPhone, channelPhone, providerPhone, ...(nameMatch || [])].filter(Boolean);
+
+				candidates.forEach(raw => {
+					if (typeof raw === 'string' && raw.trim()) {
+						const cleaned = raw.replace(/[^\d+]/g, '').trim();
+						if (cleaned.length >= 10 && !extractedNumbers.includes(cleaned)) {
+							extractedNumbers.push(cleaned);
+						}
 					}
-				}
+				});
 			});
 
 			if (extractedNumbers.length === 0) {
 				return {
 					noNumbers: true,
-					message: 'No WhatsApp or SMS inboxes with connected phone numbers found in this Chatwoot workspace.'
+					message: inboxes && inboxes.length > 0 
+						? `Found ${inboxes.length} inbox(es) (${inboxes.map(i => i.name || i.channel_type).join(', ')}), but none contain a detectable WhatsApp/SMS phone number.`
+						: 'No inboxes found in this Chatwoot workspace yet. Client needs to connect an inbox first.'
 				};
 			}
 
