@@ -81,27 +81,6 @@ export class FirebaseAdmin {
 	}
 
 	// -------------------------------------------------------------------------
-	// GLOBAL AUDIT LOGS
-	// -------------------------------------------------------------------------
-
-	static async addAuditLog(adminEmail, action, details) {
-		const docRef = db.collection('global_audit_logs').doc();
-		await docRef.set({
-			adminEmail,
-			action,
-			details,
-			timestamp: new Date().toISOString()
-		});
-	}
-
-	static async getAuditLogs() {
-		const snapshot = await db.collection('global_audit_logs').orderBy('timestamp', 'desc').limit(200).get();
-		const logs = [];
-		snapshot.forEach(doc => logs.push({ id: doc.id, ...doc.data() }));
-		return logs;
-	}
-
-	// -------------------------------------------------------------------------
 	// ADMIN COMMISSION LEDGER
 	// -------------------------------------------------------------------------
 

@@ -35,16 +35,24 @@ export async function load({ locals }) {
 			}
 			
 			sub = sub || {};
+
+			const startupRemaining = Number(sub.startup_fee?.remaining || 0);
+			const pendingMonthly = (sub.pending_fees || []).filter(f => f.remaining > 0);
+			const monthlyRemaining = pendingMonthly.reduce((sum, f) => sum + Number(f.remaining || 0), 0);
+			const totalDue = startupRemaining + monthlyRemaining;
 			
 			return {
 				id: acc.id,
 				name: acc.name,
 				status: acc.status || 'active', // active or suspended
 				planType: sub.planType || 'Unknown',
-				daysRemaining: sub.daysRemaining || 0,
+				daysRemaining: sub.daysRemaining !== undefined ? Number(sub.daysRemaining) : 0,
 				freeze: sub.freeze || false,
-				linkedEmail: acc.admin_email || sub.linkedEmail || 'N/A', // Use Chatwoot admin email if available
-				labelColor: sub.labelColor || 'gray'
+				linkedEmail: acc.admin_email || sub.linkedEmail || 'N/A',
+				phoneNumber: sub.phoneNumber || 'N/A',
+				labelColor: sub.labelColor || 'gray',
+				totalDue: totalDue,
+				monthlyFeeAmount: sub.monthly_fee_amount || 0
 			};
 		});
 
@@ -84,7 +92,7 @@ export const actions = {
 		try {
 			const chatwoot = new ChatwootAPI();
 			await chatwoot.reactivateAccount(accountId);
-			await FirebaseAdmin.updateSubscription(accountId, { status: 'active', planType, daysRemaining: days });
+			await FirebaseAdmin.updateSubscription(accountId, { status: 'active', planType, daysRemaining: days, freeze: false });
 			await FirebaseAdmin.addAuditLog(adminEmail, 'Renew Account', `Renewed account ${accountId} from main dashboard`);
 			return { success: true };
 		} catch (err) {
@@ -129,7 +137,7 @@ export const actions = {
 			await docRef.set(updateData, { merge: true });
 
 			await FirebaseAdmin.addAuditLog(adminEmail, 'Refresh Days', `Added ${daysToAdd} days to account ${accountId}`);
-			return { success: true };
+			return { success: true, message: `Successfully added ${daysToAdd} days to Account ${accountId}!` };
 		} catch (err) {
 			console.error("Failed to refresh days", err);
 			return fail(500, { error: 'Failed to refresh days' });
