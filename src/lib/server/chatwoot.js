@@ -135,6 +135,18 @@ export class ChatwootAPI {
 		return response;
 	}
 
+	async getAccountInboxes(accountId) {
+		try {
+			const res = await this._request('GET', `/api/v1/accounts/${accountId}/inboxes`);
+			if (Array.isArray(res)) return res;
+			if (res && Array.isArray(res.payload)) return res.payload;
+			return [];
+		} catch (err) {
+			console.error(`Failed to fetch inboxes for account ${accountId}:`, err.message);
+			return [];
+		}
+	}
+
 	async toggleInboxGreeting(accountId, inboxId, isEnabled) {
 		return this._request('PATCH', `/api/v1/accounts/${accountId}/inboxes/${inboxId}`, {
 			greeting_enabled: isEnabled

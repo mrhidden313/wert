@@ -16,6 +16,14 @@
 	let startupFeeData = $state({ amount: 5000 });
 
 	let isSubmitting = $state(false);
+	let isFetchingPhone = $state(false);
+	let currentPhone = $state(data.account?.phoneNumber || '');
+
+	$effect(() => {
+		if (data.account?.phoneNumber !== undefined) {
+			currentPhone = data.account.phoneNumber;
+		}
+	});
 
 	function openPaymentModal(type, feeId, maxAmount, title) {
 		paymentData = {
@@ -87,12 +95,36 @@
 			<span>{form.error}</span>
 		</div>
 	{/if}
+	{#if form?.noNumbers}
+		<div class="bg-amber-900/30 border border-amber-500/50 text-amber-300 p-4 rounded-xl mb-5 flex items-center gap-3">
+			<svg class="w-5 h-5 text-amber-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+			<span>{form.message}</span>
+		</div>
+	{/if}
 	{#if form?.success}
 		<div class="bg-emerald-900/30 border border-emerald-500/50 text-emerald-300 p-4 rounded-xl mb-5 flex items-center gap-3">
 			<svg class="w-5 h-5 text-emerald-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
 			<span>{form.message || 'Action completed successfully!'}</span>
 		</div>
 	{/if}
+
+	<!-- Hidden form for fetchInboxNumbers -->
+	<form
+		id="fetchPhoneForm"
+		method="POST"
+		action="?/fetchInboxNumbers"
+		use:enhance={() => {
+			isFetchingPhone = true;
+			return async ({ result, update }) => {
+				await update();
+				isFetchingPhone = false;
+				if (result.data?.fetchedPhone) {
+					currentPhone = result.data.fetchedPhone;
+				}
+			};
+		}}
+		class="hidden"
+	></form>
 
 	<div class="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
 		
@@ -166,8 +198,25 @@
 				</div>
 
 				<div>
-					<label class="block font-bold text-gray-400 uppercase mb-1">Phone Number (Client Contact)</label>
-					<input type="text" name="phoneNumber" value={data.account.phoneNumber} placeholder="e.g. +923001234567" class="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 font-mono" />
+					<div class="flex items-center justify-between mb-1">
+						<label class="block font-bold text-gray-400 uppercase">Phone Number (Client Contact)</label>
+						<button
+							type="submit"
+							form="fetchPhoneForm"
+							disabled={isFetchingPhone}
+							class="text-[11px] font-bold text-emerald-400 hover:text-emerald-300 bg-emerald-950/60 hover:bg-emerald-900 px-2.5 py-1 rounded-lg border border-emerald-800/60 transition-colors flex items-center gap-1.5 disabled:opacity-50 cursor-pointer shadow-sm"
+							title="Fetch connected WhatsApp / SMS numbers directly from Chatwoot inboxes"
+						>
+							{#if isFetchingPhone}
+								<span class="inline-block w-2.5 h-2.5 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin"></span>
+								<span>Fetching...</span>
+							{:else}
+								<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+								<span>Auto-Fetch from Chatwoot</span>
+							{/if}
+						</button>
+					</div>
+					<input type="text" name="phoneNumber" bind:value={currentPhone} placeholder="e.g. +923001234567" class="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 font-mono" />
 				</div>
 
 				<div class="pt-2">

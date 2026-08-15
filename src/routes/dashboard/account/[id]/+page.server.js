@@ -163,6 +163,55 @@ export const actions = {
 		}
 	},
 
+	fetchInboxNumbers: async ({ params, locals }) => {
+		const accountId = params.id;
+		const adminEmail = locals.adminEmail || 'Unknown';
+
+		try {
+			const chatwoot = new ChatwootAPI();
+			const inboxes = await chatwoot.getAccountInboxes(accountId);
+
+			const extractedNumbers = [];
+
+			inboxes.forEach(inbox => {
+				const directPhone = inbox.phone_number;
+				const channelPhone = inbox.channel?.phone_number;
+				const phone = directPhone || channelPhone;
+
+				if (phone && typeof phone === 'string' && phone.trim()) {
+					const cleaned = phone.trim();
+					if (!extractedNumbers.includes(cleaned)) {
+						extractedNumbers.push(cleaned);
+					}
+				}
+			});
+
+			if (extractedNumbers.length === 0) {
+				return {
+					noNumbers: true,
+					message: 'No WhatsApp or SMS inboxes with connected phone numbers found in this Chatwoot workspace.'
+				};
+			}
+
+			const combinedPhone = extractedNumbers.join(', ');
+
+			// Automatically update Firebase subscription with the fetched phone number
+			await FirebaseAdmin.updateSubscription(accountId, { phoneNumber: combinedPhone });
+			await FirebaseAdmin.addAuditLog(adminEmail, 'Fetch Phone Number', `Auto-fetched ${combinedPhone} from Chatwoot inboxes for account ${accountId}`);
+
+			return {
+				success: true,
+				fetchedPhone: combinedPhone,
+				count: extractedNumbers.length,
+				numbers: extractedNumbers,
+				message: `Successfully fetched ${extractedNumbers.length} number(s) from Chatwoot: ${combinedPhone}`
+			};
+		} catch (err) {
+			console.error("Failed to fetch inbox numbers:", err);
+			return fail(500, { error: `Failed to fetch from Chatwoot: ${err.message}` });
+		}
+	},
+
 	setStartupFee: async ({ request, params, locals }) => {
 		const data = await request.formData();
 		const amount = parseInt(data.get('amount') || '0', 10);
