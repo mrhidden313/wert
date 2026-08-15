@@ -18,19 +18,17 @@ export async function POST({ locals }) {
 		// 2. Filter out suspended accounts
 		const activeAndExpiredAccounts = accounts.filter(a => a.status !== 'suspended');
 
-		let totalProcessed = 0;
 		let phoneCount = 0;
-		let logs = [];
+		let totalProcessed = 0;
 
-		// 3. Process each account
-		for (const acc of activeAndExpiredAccounts) {
+		// 3. Process accounts in parallel (Ultra-Fast SWR Backend Pattern)
+		const syncPromises = activeAndExpiredAccounts.map(async (acc) => {
 			const accountId = String(acc.id);
 			totalProcessed++;
 
 			try {
 				let inboxes = await chatwoot.getAccountInboxes(accountId);
 
-				// Bridge Fallback if standard list is empty
 				if (!inboxes || inboxes.length === 0) {
 					try {
 						const bridgeRes = await chatwoot._bridgeRequest('GET', `/super_admin/bridge/inboxes?account_id=${accountId}`);
@@ -42,8 +40,15 @@ export async function POST({ locals }) {
 					}
 				}
 
+				// Check for admin ignored/muted channels in Firestore
+				const sub = await FirebaseAdmin.getSubscription(accountId) || {};
+				const ignoredIds = new Set((sub.ignored_inbox_ids || []).map(String));
+
+				// Filter out ignored inboxes
+				const activeInboxes = (inboxes || []).filter(i => !ignoredIds.has(String(i.id)));
+
 				const extractedNumbers = [];
-				(inboxes || []).forEach(inbox => {
+				activeInboxes.forEach(inbox => {
 					const directPhone = inbox.phone_number;
 					const channelPhone = inbox.channel?.phone_number;
 					const providerPhone = inbox.provider_config?.phone_number || inbox.channel?.provider_config?.phone_number;
@@ -70,26 +75,27 @@ export async function POST({ locals }) {
 					phoneCount++;
 				}
 
-				const waInboxWithHealth = (inboxes || []).find(i => i.health);
+				const waInboxWithHealth = activeInboxes.find(i => i.health);
 				if (waInboxWithHealth?.health) {
 					updatePayload.whatsapp_health = waInboxWithHealth.health;
 				}
 
 				await FirebaseAdmin.updateSubscription(accountId, updatePayload);
-				logs.push(`Account ${accountId} (${acc.name}): ${updatePayload.phoneNumber || 'No connected inboxes'}`);
 			} catch (e) {
 				console.error(`Sync error for account ${accountId}:`, e.message);
 			}
-		}
+		});
 
-		await FirebaseAdmin.addAuditLog(adminEmail, 'Bulk Sync Workspaces', `Bulk synced ${totalProcessed} workspaces (${phoneCount} phone numbers updated)`);
+		await Promise.allSettled(syncPromises);
+
+		await FirebaseAdmin.addAuditLog(adminEmail, 'Bulk Sync Workspaces', `Bulk synced ${activeAndExpiredAccounts.length} workspaces (${phoneCount} active WhatsApp numbers found)`);
 
 		return json({
 			success: true,
 			totalScanned: activeAndExpiredAccounts.length,
 			totalProcessed,
 			phoneCount,
-			message: `Successfully synced all ${totalProcessed} workspaces (${phoneCount} active WhatsApp numbers found & updated in Firestore)!`
+			message: `Successfully synced all ${activeAndExpiredAccounts.length} workspaces (${phoneCount} active WhatsApp numbers updated, ignored channels skipped)!`
 		});
 	} catch (err) {
 		console.error("Bulk sync error:", err);

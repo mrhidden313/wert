@@ -2,14 +2,65 @@ import { ChatwootAPI } from '$lib/server/chatwoot';
 import { FirebaseAdmin } from '$lib/server/firebase';
 import { fail } from '@sveltejs/kit';
 
+function extractInboxesData(inboxes, ignoredIds = []) {
+	const ignoredSet = new Set((ignoredIds || []).map(String));
+	
+	const allInboxesParsed = (inboxes || []).map(inbox => {
+		const directPhone = inbox.phone_number;
+		const channelPhone = inbox.channel?.phone_number;
+		const providerPhone = inbox.provider_config?.phone_number || inbox.channel?.provider_config?.phone_number;
+		const nameMatch = inbox.name ? String(inbox.name).match(/(\+?[0-9]{10,15})/g) : null;
+		const candidates = [directPhone, channelPhone, providerPhone, ...(nameMatch || [])].filter(Boolean);
+
+		let phone = null;
+		for (const raw of candidates) {
+			if (typeof raw === 'string' && raw.trim()) {
+				const cleaned = raw.replace(/[^\d+]/g, '').trim();
+				if (cleaned.length >= 10) {
+					phone = cleaned;
+					break;
+				}
+			}
+		}
+
+		return {
+			id: String(inbox.id),
+			name: inbox.name || `Inbox #${inbox.id}`,
+			channel_type: inbox.channel_type || 'Channel::Whatsapp',
+			phone_number: phone || inbox.phone_number || null,
+			health: inbox.health || null,
+			ignored: ignoredSet.has(String(inbox.id))
+		};
+	});
+
+	// Active inboxes are those NOT ignored
+	const activeInboxes = allInboxesParsed.filter(i => !i.ignored);
+	const activeNumbers = [];
+	activeInboxes.forEach(i => {
+		if (i.phone_number && !activeNumbers.includes(i.phone_number)) {
+			activeNumbers.push(i.phone_number);
+		}
+	});
+
+	// Find health from first active WhatsApp inbox with health info
+	const activeWaWithHealth = activeInboxes.find(i => i.health);
+	const activeHealth = activeWaWithHealth?.health || null;
+
+	return {
+		allInboxes: allInboxesParsed,
+		activeInboxes,
+		activeNumbers,
+		activeHealth,
+		combinedPhone: activeNumbers.length > 0 ? activeNumbers.join(', ') : 'N/A'
+	};
+}
+
 export async function load({ params }) {
 	const accountId = params.id;
 
 	try {
 		const chatwoot = new ChatwootAPI();
 		
-		// The Bridge API 'find_account' uses email, so we need to either find by ID, 
-		// or fetch all and filter since bridge/accounts is small enough for SAAS.
 		const accountsResponse = await chatwoot.listAccounts();
 		let accounts = [];
 		if (accountsResponse && accountsResponse.accounts) {
@@ -36,6 +87,23 @@ export async function load({ params }) {
 		}
 		
 		subscription = subscription || {};
+		const ignoredIds = subscription.ignored_inbox_ids || [];
+
+		// Fetch inboxes for channel manager
+		let inboxes = [];
+		try {
+			inboxes = await chatwoot.getAccountInboxes(accountId);
+			if (!inboxes || inboxes.length === 0) {
+				const bridgeRes = await chatwoot._bridgeRequest('GET', `/super_admin/bridge/inboxes?account_id=${accountId}`);
+				if (Array.isArray(bridgeRes)) inboxes = bridgeRes;
+				else if (bridgeRes && Array.isArray(bridgeRes.inboxes)) inboxes = bridgeRes.inboxes;
+				else if (bridgeRes && Array.isArray(bridgeRes.payload)) inboxes = bridgeRes.payload;
+			}
+		} catch (e) {
+			// Ignore inboxes fetch error
+		}
+
+		const parsedInboxes = extractInboxesData(inboxes, ignoredIds);
 
 		return {
 			account: {
@@ -47,8 +115,8 @@ export async function load({ params }) {
 				created_at: account.created_at,
 				planType: subscription.planType || 'Unknown',
 				daysRemaining: subscription.daysRemaining || 0,
-				phoneNumber: subscription.phoneNumber || 'N/A',
-				greeting_enabled: subscription.greeting_enabled !== false, // default true
+				phoneNumber: subscription.phoneNumber || parsedInboxes.combinedPhone || 'N/A',
+				greeting_enabled: subscription.greeting_enabled !== false,
 				allowed_inboxes: subscription.allowed_inboxes || {
 					whatsapp: true,
 					web_widget: false,
@@ -65,7 +133,9 @@ export async function load({ params }) {
 				pending_fees: subscription.pending_fees || [],
 				history: subscription.history || [],
 				freeze: subscription.freeze || false,
-				whatsapp_health: subscription.whatsapp_health || null
+				whatsapp_health: subscription.whatsapp_health || parsedInboxes.activeHealth || null,
+				ignored_inbox_ids: ignoredIds,
+				inboxes: parsedInboxes.allInboxes
 			}
 		};
 
@@ -151,7 +221,6 @@ export const actions = {
 			const isAutoFreeze = daysRemaining <= 0;
 			const status = daysRemaining > 0 ? 'active' : 'expired';
 
-			// Update in Firebase (this also acts as a migration if it was stored by a random ID before)
 			await FirebaseAdmin.updateSubscription(accountId, {
 				planType,
 				daysRemaining,
@@ -166,6 +235,60 @@ export const actions = {
 		} catch (error) {
 			console.error('Edit subscription error:', error);
 			return fail(500, { error: 'Internal server error while updating subscription' });
+		}
+	},
+
+	toggleIgnoreInbox: async ({ request, params, locals }) => {
+		const data = await request.formData();
+		const accountId = params.id;
+		const inboxId = String(data.get('inboxId'));
+		const ignore = data.get('ignore') === 'true' || data.get('ignore') === true;
+		const adminEmail = locals.adminEmail || 'Unknown';
+
+		try {
+			const sub = await FirebaseAdmin.getSubscription(accountId) || {};
+			let ignored = (sub.ignored_inbox_ids || []).map(String);
+
+			if (ignore) {
+				if (!ignored.includes(inboxId)) ignored.push(inboxId);
+			} else {
+				ignored = ignored.filter(id => id !== inboxId);
+			}
+
+			// Re-evaluate inboxes with new ignored list
+			const chatwoot = new ChatwootAPI();
+			let inboxes = await chatwoot.getAccountInboxes(accountId);
+			if (!inboxes || inboxes.length === 0) {
+				const bridgeRes = await chatwoot._bridgeRequest('GET', `/super_admin/bridge/inboxes?account_id=${accountId}`);
+				if (Array.isArray(bridgeRes)) inboxes = bridgeRes;
+				else if (bridgeRes && Array.isArray(bridgeRes.inboxes)) inboxes = bridgeRes.inboxes;
+				else if (bridgeRes && Array.isArray(bridgeRes.payload)) inboxes = bridgeRes.payload;
+			}
+
+			const parsed = extractInboxesData(inboxes, ignored);
+			const updatePayload = {
+				ignored_inbox_ids: ignored,
+				phoneNumber: parsed.combinedPhone
+			};
+
+			if (parsed.activeHealth) {
+				updatePayload.whatsapp_health = parsed.activeHealth;
+			}
+
+			await FirebaseAdmin.updateSubscription(accountId, updatePayload);
+			await FirebaseAdmin.addAuditLog(adminEmail, 'Toggle Ignore Channel', `${ignore ? 'Ignored' : 'Unignored'} Inbox #${inboxId} for account ${accountId}`);
+
+			return {
+				success: true,
+				ignored_inbox_ids: ignored,
+				inboxes: parsed.allInboxes,
+				phoneNumber: parsed.combinedPhone,
+				health: parsed.activeHealth,
+				message: `Channel #${inboxId} ${ignore ? 'ignored/skipped' : 'activated'} successfully!`
+			};
+		} catch (err) {
+			console.error("Failed to toggle ignore inbox:", err);
+			return fail(500, { error: err.message });
 		}
 	},
 
@@ -189,59 +312,36 @@ export const actions = {
 				}
 			}
 
-			const extractedNumbers = [];
+			const sub = await FirebaseAdmin.getSubscription(accountId) || {};
+			const ignoredIds = sub.ignored_inbox_ids || [];
 
-			(inboxes || []).forEach(inbox => {
-				// 1. Direct fields
-				const directPhone = inbox.phone_number;
-				const channelPhone = inbox.channel?.phone_number;
-				// 2. Provider Config fields
-				const providerPhone = inbox.provider_config?.phone_number || inbox.channel?.provider_config?.phone_number;
-				// 3. Name regex extraction (e.g., "WhatsApp +923351199648" or "WA: 03351199648")
-				const nameMatch = inbox.name ? String(inbox.name).match(/(\+?[0-9]{10,15})/g) : null;
+			const parsed = extractInboxesData(inboxes, ignoredIds);
 
-				const candidates = [directPhone, channelPhone, providerPhone, ...(nameMatch || [])].filter(Boolean);
-
-				candidates.forEach(raw => {
-					if (typeof raw === 'string' && raw.trim()) {
-						const cleaned = raw.replace(/[^\d+]/g, '').trim();
-						if (cleaned.length >= 10 && !extractedNumbers.includes(cleaned)) {
-							extractedNumbers.push(cleaned);
-						}
-					}
-				});
-			});
-
-			if (extractedNumbers.length === 0) {
+			if (parsed.allInboxes.length === 0) {
 				return {
 					noNumbers: true,
-					message: inboxes && inboxes.length > 0 
-						? `Found ${inboxes.length} inbox(es) (${inboxes.map(i => i.name || i.channel_type).join(', ')}), but none contain a detectable WhatsApp/SMS phone number.`
-						: 'No inboxes found in this Chatwoot workspace yet. Client needs to connect an inbox first.'
+					message: 'No inboxes found in this Chatwoot workspace yet. Client needs to connect an inbox first.'
 				};
 			}
 
-			const combinedPhone = extractedNumbers.join(', ');
-
-			const waInboxWithHealth = (inboxes || []).find(i => i.health);
-			const healthInfo = waInboxWithHealth?.health || null;
-
-			const updatePayload = { phoneNumber: combinedPhone };
-			if (healthInfo) {
-				updatePayload.whatsapp_health = healthInfo;
+			const updatePayload = { 
+				phoneNumber: parsed.combinedPhone 
+			};
+			if (parsed.activeHealth) {
+				updatePayload.whatsapp_health = parsed.activeHealth;
 			}
 
-			// Automatically update Firebase subscription with the fetched phone number & health
 			await FirebaseAdmin.updateSubscription(accountId, updatePayload);
-			await FirebaseAdmin.addAuditLog(adminEmail, 'Fetch Phone Number & Health', `Auto-fetched ${combinedPhone} (Health: ${healthInfo?.health_level || 'UNKNOWN'}) for account ${accountId}`);
+			await FirebaseAdmin.addAuditLog(adminEmail, 'Fetch Phone Number & Health', `Auto-fetched ${parsed.combinedPhone} for account ${accountId}`);
 
 			return {
 				success: true,
-				fetchedPhone: combinedPhone,
-				health: healthInfo,
-				count: extractedNumbers.length,
-				numbers: extractedNumbers,
-				message: `Successfully synced ${extractedNumbers.length} number(s) from Chatwoot: ${combinedPhone} ${healthInfo ? `(Status: ${healthInfo.status}, Quality: ${healthInfo.quality_rating})` : ''}`
+				fetchedPhone: parsed.combinedPhone,
+				health: parsed.activeHealth,
+				inboxes: parsed.allInboxes,
+				count: parsed.activeNumbers.length,
+				numbers: parsed.activeNumbers,
+				message: `Successfully synced ${parsed.activeNumbers.length} active channel(s) from Chatwoot: ${parsed.combinedPhone} ${parsed.activeHealth ? `(Status: ${parsed.activeHealth.status})` : ''}`
 			};
 		} catch (err) {
 			console.error("Failed to fetch inbox numbers:", err);
@@ -259,185 +359,161 @@ export const actions = {
 			if (sub && sub.startup_fee) {
 				paid = sub.startup_fee.paid || 0;
 			}
-			const remaining = Math.max(0, amount - paid);
-			
 			await FirebaseAdmin.updateSubscription(params.id, {
-				startup_fee: { amount, paid, remaining }
+				startup_fee: {
+					total: amount,
+					paid: paid
+				}
 			});
-			await FirebaseAdmin.addAuditLog(adminEmail, 'Set Startup Fee', `Set startup fee to ${amount} for account ${params.id}`);
-			return { success: true, message: 'Startup fee set!' };
-		} catch (err) {
-			return fail(500, { error: 'Failed to set startup fee' });
+			await FirebaseAdmin.addAuditLog(adminEmail, 'Set Startup Fee', `Set total startup fee to ${amount} for account ${params.id}`);
+			return { success: true, message: 'Startup fee updated successfully!' };
+		} catch (e) {
+			return fail(500, { error: e.message });
 		}
 	},
-	
-	addPendingFee: async ({ request, params, locals }) => {
+
+	setMonthlyFeeAmount: async ({ request, params, locals }) => {
+		const data = await request.formData();
+		const amount = parseInt(data.get('amount') || '0', 10);
+		const adminEmail = locals.adminEmail || 'Unknown';
+		try {
+			await FirebaseAdmin.updateSubscription(params.id, {
+				monthly_fee_amount: amount
+			});
+			await FirebaseAdmin.addAuditLog(adminEmail, 'Set Monthly Fee Amount', `Set standard monthly fee amount to ${amount} for account ${params.id}`);
+			return { success: true, message: 'Monthly fee rate saved successfully!' };
+		} catch (e) {
+			return fail(500, { error: e.message });
+		}
+	},
+
+	addInvoice: async ({ request, params, locals }) => {
 		const data = await request.formData();
 		const amount = parseInt(data.get('amount') || '0', 10);
 		const month = data.get('month') || new Date().toLocaleString('default', { month: 'short', year: 'numeric' });
 		const adminEmail = locals.adminEmail || 'Unknown';
+
 		try {
-			const { FieldValue } = await import('firebase-admin/firestore');
-			const { db } = await import('$lib/server/firebase');
-			const docRef = db.collection('subscriptions').doc(String(params.id));
-			
-			const newFee = { id: Date.now().toString(), type: 'monthly', amount, remaining: amount, paid: false, month_label: month };
-			await docRef.set({ pending_fees: FieldValue.arrayUnion(newFee) }, { merge: true });
-			
-			await FirebaseAdmin.addAuditLog(adminEmail, 'Add Pending Fee', `Added monthly fee of ${amount} for ${month} to account ${params.id}`);
-			return { success: true, message: 'Added pending monthly fee!' };
-		} catch (err) {
-			return fail(500, { error: 'Failed to add monthly fee' });
+			const sub = await FirebaseAdmin.getSubscription(params.id);
+			const pending_fees = sub?.pending_fees || [];
+			const newFee = {
+				id: 'fee_' + Date.now(),
+				month: month,
+				total: amount,
+				paid: 0,
+				status: 'unpaid',
+				generatedAt: new Date().toISOString()
+			};
+			pending_fees.push(newFee);
+			await FirebaseAdmin.updateSubscription(params.id, { pending_fees });
+			await FirebaseAdmin.addAuditLog(adminEmail, 'Add Invoice', `Manually generated monthly fee invoice of PKR ${amount} for ${month} (Account ${params.id})`);
+			return { success: true, message: `Invoice for ${month} generated successfully!` };
+		} catch (e) {
+			return fail(500, { error: e.message });
 		}
 	},
 
 	recordPayment: async ({ request, params, locals }) => {
 		const data = await request.formData();
+		const type = data.get('type');
+		const feeId = data.get('feeId');
 		const amount = parseInt(data.get('amount') || '0', 10);
-		const type = data.get('type'); // 'startup' or 'monthly'
-		const feeId = data.get('feeId'); 
 		const bankType = data.get('bankType') || 'Cash';
 		const txId = data.get('txId') || '';
 		const notes = data.get('notes') || '';
 		const adminEmail = locals.adminEmail || 'Unknown';
-		
+
+		if (isNaN(amount) || amount <= 0) {
+			return fail(400, { error: 'Invalid payment amount' });
+		}
+
 		try {
 			const sub = await FirebaseAdmin.getSubscription(params.id);
-			if (!sub) return fail(404, { error: 'Not found' });
-			
-			const { FieldValue } = await import('firebase-admin/firestore');
-			const { db } = await import('$lib/server/firebase');
-			const docRef = db.collection('subscriptions').doc(String(params.id));
-			
-			let updateData = {};
-			
-			if (type === 'startup' && sub.startup_fee) {
-				const sf = sub.startup_fee;
-				const newPaid = sf.paid + amount;
-				const newRemaining = Math.max(0, sf.amount - newPaid);
-				updateData.startup_fee = { amount: sf.amount, paid: newPaid, remaining: newRemaining };
-			} else if (type === 'monthly' && sub.pending_fees) {
-				const pFees = [...sub.pending_fees];
-				const idx = pFees.findIndex(f => f.id === feeId);
-				if (idx > -1) {
-					pFees[idx].remaining = Math.max(0, pFees[idx].remaining - amount);
-					if (pFees[idx].remaining === 0) pFees[idx].paid = true;
-					updateData.pending_fees = pFees;
+			if (!sub) return fail(404, { error: 'Subscription not found' });
+
+			const history = sub.history || [];
+			const paymentRecord = {
+				id: 'pay_' + Date.now(),
+				type: type === 'startup' ? 'Startup Fee' : 'Monthly Fee',
+				amount: amount,
+				bankType: bankType,
+				txId: txId,
+				notes: notes,
+				recordedBy: adminEmail,
+				date: new Date().toISOString()
+			};
+			history.unshift(paymentRecord);
+
+			const updatePayload = { history };
+
+			if (type === 'startup') {
+				const currentPaid = sub.startup_fee?.paid || 0;
+				const total = sub.startup_fee?.total || 0;
+				updatePayload.startup_fee = {
+					total: total,
+					paid: currentPaid + amount
+				};
+			} else if (type === 'monthly') {
+				const pending_fees = sub.pending_fees || [];
+				const feeIndex = pending_fees.findIndex(f => f.id === feeId);
+				if (feeIndex !== -1) {
+					const fee = pending_fees[feeIndex];
+					fee.paid = (fee.paid || 0) + amount;
+					if (fee.paid >= fee.total) {
+						fee.status = 'paid';
+					} else {
+						fee.status = 'partial';
+					}
+					updatePayload.pending_fees = pending_fees;
 				}
 			}
-			
-			const historyEntry = {
-				date: new Date().toISOString(),
-				action: `Paid ${amount} towards ${type}`,
-				admin: adminEmail,
-				notes: `${bankType} ${txId ? 'Tx: '+txId : ''} ${notes}`.trim(),
-				type: 'payment',
-				amount_paid: amount
-			};
-			
-			updateData.history = FieldValue.arrayUnion(historyEntry);
-			updateData.updatedAt = new Date().toISOString();
-			
-			await docRef.set(updateData, { merge: true });
-			await FirebaseAdmin.addAuditLog(adminEmail, 'Record Payment', `Recorded payment of ${amount} for account ${params.id}`);
-			return { success: true, message: 'Payment recorded!' };
-			
-		} catch (err) {
-			console.error(err);
-			return fail(500, { error: 'Failed to record payment' });
+
+			await FirebaseAdmin.updateSubscription(params.id, updatePayload);
+			await FirebaseAdmin.addAuditLog(adminEmail, 'Record Payment', `Recorded ${type} payment of PKR ${amount} via ${bankType} for account ${params.id}`);
+			return { success: true, message: 'Payment recorded successfully!' };
+		} catch (e) {
+			return fail(500, { error: e.message });
 		}
 	},
 
-	updateLabelColor: async ({ request, params, locals }) => {
+	updateAllowedInboxes: async ({ request, params, locals }) => {
 		const data = await request.formData();
-		const labelColor = data.get('labelColor') || 'gray';
-		const adminEmail = locals.adminEmail || 'Unknown';
-		try {
-			await FirebaseAdmin.updateSubscription(params.id, { labelColor });
-			await FirebaseAdmin.addAuditLog(adminEmail, 'Update Label', `Changed label color to ${labelColor} for account ${params.id}`);
-			return { success: true, message: 'Label color updated!' };
-		} catch (err) {
-			return fail(500, { error: 'Failed to update label color' });
-		}
-	},
-
-	suspend: async ({ params, locals }) => {
-		const adminEmail = locals.adminEmail || 'Unknown';
-		try {
-			const chatwoot = new ChatwootAPI();
-			await chatwoot.suspendAccount(params.id);
-			await FirebaseAdmin.updateSubscription(params.id, { status: 'suspended', daysRemaining: 0, freeze: true });
-			await FirebaseAdmin.addAuditLog(adminEmail, 'Suspend Account', `Suspended account ${params.id} (App Frozen)`);
-			return { success: true, message: 'Account suspended and app frozen.' };
-		} catch (err) {
-			return fail(500, { error: 'Failed to suspend account' });
-		}
-	},
-
-	renew: async ({ request, params, locals }) => {
-		const data = await request.formData();
-		const days = parseInt(data.get('daysRemaining') || '30', 10);
-		const adminEmail = locals.adminEmail || 'Unknown';
-		try {
-			const chatwoot = new ChatwootAPI();
-			await chatwoot.reactivateAccount(params.id);
-			await FirebaseAdmin.updateSubscription(params.id, { status: 'active', daysRemaining: days, freeze: false });
-			await FirebaseAdmin.addAuditLog(adminEmail, 'Renew Account', `Renewed account ${params.id} for ${days} days (App Unfrozen)`);
-			return { success: true, message: `Account renewed for ${days} days and app unfrozen.` };
-		} catch (err) {
-			return fail(500, { error: 'Failed to renew account' });
-		}
-	},
-
-	toggleFreeze: async ({ request, params, locals }) => {
-		const data = await request.formData();
-		const freeze = data.get('freeze') === 'true';
-		const adminEmail = locals.adminEmail || 'Unknown';
-		try {
-			await FirebaseAdmin.updateSubscription(params.id, { freeze });
-			await FirebaseAdmin.addAuditLog(adminEmail, 'Toggle Freeze', `${freeze ? 'Froze' : 'Unfroze'} app for account ${params.id}`);
-			return { success: true, message: freeze ? 'App Frozen' : 'App Unfrozen' };
-		} catch (err) {
-			return fail(500, { error: 'Failed to freeze/unfreeze' });
-		}
-	},
-
-	destroy: async ({ params, locals }) => {
-		const adminEmail = locals.adminEmail || 'Unknown';
-		try {
-			const chatwoot = new ChatwootAPI();
-			await chatwoot.destroyAccount(params.id);
-			await FirebaseAdmin.addAuditLog(adminEmail, 'Destroy Account', `Destroyed account ${params.id}`);
-			return { success: true, message: 'Account destroyed.' };
-		} catch (err) {
-			return fail(500, { error: 'Failed to destroy account' });
-		}
-	},
-
-	saveAllowedInboxes: async ({ request, params, locals }) => {
-		const data = await request.formData();
-		const accountId = params.id;
 		const adminEmail = locals.adminEmail || 'Unknown';
 
 		const allowed_inboxes = {
-			whatsapp: data.get('whatsapp') === 'true',
-			web_widget: data.get('web_widget') === 'true',
-			telegram: data.get('telegram') === 'true',
-			api: data.get('api') === 'true',
-			facebook: data.get('facebook') === 'true',
-			sms: data.get('sms') === 'true',
-			email: data.get('email') === 'true',
-			instagram: data.get('instagram') === 'true',
-			line: data.get('line') === 'true'
+			whatsapp: data.get('whatsapp') === 'on',
+			web_widget: data.get('web_widget') === 'on',
+			telegram: data.get('telegram') === 'on',
+			api: data.get('api') === 'on',
+			facebook: data.get('facebook') === 'on',
+			sms: data.get('sms') === 'on',
+			email: data.get('email') === 'on',
+			instagram: data.get('instagram') === 'on',
+			line: data.get('line') === 'on'
 		};
 
 		try {
-			await FirebaseAdmin.updateSubscription(accountId, { allowed_inboxes });
-			await FirebaseAdmin.addAuditLog(adminEmail, 'Save Allowed Inboxes', `Updated allowed inboxes for account ${accountId}`);
-			return { success: true, message: 'Allowed Inboxes updated successfully in Firebase!' };
+			await FirebaseAdmin.updateSubscription(params.id, { allowed_inboxes });
+			await FirebaseAdmin.addAuditLog(adminEmail, 'Update Allowed Inboxes', `Updated inbox channel permissions for account ${params.id}`);
+			return { success: true, message: 'Inbox permissions updated successfully!' };
 		} catch (error) {
-			console.error('Save Allowed Inboxes error:', error);
-			return fail(500, { error: 'Failed to save allowed inboxes' });
+			console.error('Update allowed inboxes error:', error);
+			return fail(500, { error: 'Internal server error while updating inbox permissions' });
+		}
+	},
+
+	toggleGreeting: async ({ request, params, locals }) => {
+		const data = await request.formData();
+		const enabled = data.get('enabled') === 'true';
+		const adminEmail = locals.adminEmail || 'Unknown';
+
+		try {
+			await FirebaseAdmin.updateSubscription(params.id, { greeting_enabled: enabled });
+			await FirebaseAdmin.addAuditLog(adminEmail, 'Toggle Auto Greeting', `${enabled ? 'Enabled' : 'Disabled'} auto greeting for account ${params.id}`);
+			return { success: true, message: `Auto greeting ${enabled ? 'enabled' : 'disabled'} successfully!` };
+		} catch (error) {
+			console.error('Toggle greeting error:', error);
+			return fail(500, { error: 'Internal server error while updating greeting preference' });
 		}
 	}
 };

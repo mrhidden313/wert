@@ -70,12 +70,23 @@ export async function GET({ request }) {
 				}
 			}
 
-			// 3. Daily 24h WhatsApp Phone & Health Sync
+			// 3. Daily 24h WhatsApp Phone & Health Sync (Skipping Ignored Inboxes)
 			try {
-				const inboxes = await chatwoot.getAccountInboxes(accountId);
-				if (inboxes && inboxes.length > 0) {
+				let inboxes = await chatwoot.getAccountInboxes(accountId);
+				if (!inboxes || inboxes.length === 0) {
+					try {
+						const bridgeRes = await chatwoot._bridgeRequest('GET', `/super_admin/bridge/inboxes?account_id=${accountId}`);
+						if (Array.isArray(bridgeRes)) inboxes = bridgeRes;
+						else if (bridgeRes && Array.isArray(bridgeRes.inboxes)) inboxes = bridgeRes.inboxes;
+					} catch (e) {}
+				}
+
+				const ignoredIds = new Set((sub.ignored_inbox_ids || []).map(String));
+				const activeInboxes = (inboxes || []).filter(i => !ignoredIds.has(String(i.id)));
+
+				if (activeInboxes.length > 0) {
 					const extractedNumbers = [];
-					inboxes.forEach(inbox => {
+					activeInboxes.forEach(inbox => {
 						const directPhone = inbox.phone_number;
 						const channelPhone = inbox.channel?.phone_number;
 						const providerPhone = inbox.provider_config?.phone_number || inbox.channel?.provider_config?.phone_number;
@@ -95,13 +106,13 @@ export async function GET({ request }) {
 						updateData.phoneNumber = extractedNumbers.join(', ');
 					}
 
-					const waInboxWithHealth = inboxes.find(i => i.health);
+					const waInboxWithHealth = activeInboxes.find(i => i.health);
 					if (waInboxWithHealth?.health) {
 						updateData.whatsapp_health = waInboxWithHealth.health;
 					}
 				}
 			} catch (e) {
-				// Non-fatal if single account inboxes fetch fails
+				console.error(`Daily cron phone sync failed for ${accountId}:`, e.message);
 			}
 
 			updateData.updatedAt = new Date().toISOString();

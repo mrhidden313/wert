@@ -17,13 +17,44 @@
 
 	let isSubmitting = $state(false);
 	let isFetchingPhone = $state(false);
+	let isTogglingInbox = $state(null);
 	let currentPhone = $state(data.account?.phoneNumber || '');
+	let currentHealth = $state(data.account?.whatsapp_health || null);
+	let inboxes = $state(data.account?.inboxes || []);
+	let ignoredInboxIds = $state(data.account?.ignored_inbox_ids || []);
 
 	$effect(() => {
-		if (data.account?.phoneNumber !== undefined) {
-			currentPhone = data.account.phoneNumber;
-		}
+		if (data.account?.phoneNumber !== undefined) currentPhone = data.account.phoneNumber;
+		if (data.account?.whatsapp_health !== undefined) currentHealth = data.account.whatsapp_health;
+		if (data.account?.inboxes !== undefined) inboxes = data.account.inboxes;
+		if (data.account?.ignored_inbox_ids !== undefined) ignoredInboxIds = data.account.ignored_inbox_ids;
 	});
+
+	async function toggleInbox(inboxId, shouldIgnore) {
+		isTogglingInbox = inboxId;
+		try {
+			const formData = new FormData();
+			formData.append('inboxId', String(inboxId));
+			formData.append('ignore', String(shouldIgnore));
+
+			const res = await fetch('?/toggleIgnoreInbox', {
+				method: 'POST',
+				body: formData
+			});
+			const result = await res.json();
+			if (result?.data) {
+				const resData = typeof result.data === 'string' ? JSON.parse(result.data) : result.data;
+				if (resData.inboxes) inboxes = resData.inboxes;
+				if (resData.phoneNumber) currentPhone = resData.phoneNumber;
+				if (resData.health !== undefined) currentHealth = resData.health;
+				if (resData.ignored_inbox_ids) ignoredInboxIds = resData.ignored_inbox_ids;
+			}
+		} catch (e) {
+			console.error("Toggle inbox error:", e);
+		} finally {
+			isTogglingInbox = null;
+		}
+	}
 
 	function openPaymentModal(type, feeId, maxAmount, title) {
 		paymentData = {
@@ -120,6 +151,12 @@
 				isFetchingPhone = false;
 				if (result.data?.fetchedPhone) {
 					currentPhone = result.data.fetchedPhone;
+				}
+				if (result.data?.health !== undefined) {
+					currentHealth = result.data.health;
+				}
+				if (result.data?.inboxes) {
+					inboxes = result.data.inboxes;
 				}
 			};
 		}}
@@ -218,21 +255,82 @@
 					</div>
 					<input type="text" name="phoneNumber" bind:value={currentPhone} placeholder="e.g. +923001234567" class="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 font-mono" />
 
-					{#if data.account.whatsapp_health}
-						<div class="mt-2.5 p-3 rounded-xl border text-xs flex flex-col gap-1.5 {data.account.whatsapp_health.health_level === 'BANNED' ? 'bg-red-950/60 border-red-800 text-red-300' : data.account.whatsapp_health.health_level === 'DANGER' || data.account.whatsapp_health.health_level === 'WARNING' ? 'bg-amber-950/60 border-amber-800 text-amber-300' : data.account.whatsapp_health.health_level === 'TOKEN_EXPIRED' ? 'bg-gray-900 border-gray-700 text-gray-300' : 'bg-emerald-950/60 border-emerald-800/80 text-emerald-300'}">
+					{#if inboxes && inboxes.length > 0}
+						<!-- Multi-Channel Manager Card -->
+						<div class="mt-3 p-3.5 bg-gray-950/80 border border-gray-800 rounded-xl space-y-2.5">
+							<div class="flex items-center justify-between">
+								<div class="flex items-center gap-2">
+									<span class="text-xs font-bold text-gray-300">Connected Channels ({inboxes.length})</span>
+									<span class="text-[10px] text-gray-500 font-mono">Uncheck to ignore/mute</span>
+								</div>
+								{#if inboxes.filter(i => i.ignored).length > 0}
+									<span class="text-[10px] font-bold text-amber-400 bg-amber-950/60 px-2 py-0.5 rounded border border-amber-800/60">
+										{inboxes.filter(i => i.ignored).length} Muted
+									</span>
+								{/if}
+							</div>
+
+							<div class="space-y-2">
+								{#each inboxes as inbox}
+									<div class="p-2.5 rounded-lg border flex items-center justify-between text-xs transition-all {inbox.ignored ? 'bg-gray-900/40 border-gray-800/60 opacity-60' : 'bg-gray-900 border-gray-800'}">
+										<div class="flex items-center gap-2.5">
+											<button
+												type="button"
+												onclick={() => toggleInbox(inbox.id, !inbox.ignored)}
+												disabled={isTogglingInbox === inbox.id}
+												class="w-5 h-5 rounded flex items-center justify-center border transition-colors cursor-pointer {inbox.ignored ? 'bg-gray-800 border-gray-700 text-transparent' : 'bg-emerald-600 border-emerald-500 text-white'}"
+												title={inbox.ignored ? 'Click to activate this channel' : 'Click to ignore/skip this channel'}
+											>
+												{#if isTogglingInbox === inbox.id}
+													<span class="w-2.5 h-2.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+												{:else if !inbox.ignored}
+													<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" /></svg>
+												{/if}
+											</button>
+
+											<div>
+												<div class="font-bold flex items-center gap-1.5 {inbox.ignored ? 'text-gray-400 line-through' : 'text-white'}">
+													<span>{inbox.name}</span>
+													<span class="text-[10px] font-mono px-1.5 py-0.2 rounded bg-gray-800 text-gray-400">ID #{inbox.id}</span>
+												</div>
+												<div class="text-[11px] font-mono mt-0.5 {inbox.ignored ? 'text-gray-500' : 'text-emerald-400 font-semibold'}">
+													{inbox.phone_number || 'No phone'}
+												</div>
+											</div>
+										</div>
+
+										<div class="flex items-center gap-2">
+											{#if inbox.health}
+												<span class="px-2 py-0.5 rounded-full text-[10px] font-bold border {inbox.health.status === 'BANNED' || inbox.health.status === 'RESTRICTED' ? 'bg-red-950 text-red-400 border-red-800' : inbox.health.status === 'TOKEN_EXPIRED' ? 'bg-gray-800 text-gray-400 border-gray-700' : 'bg-emerald-950 text-emerald-400 border-emerald-800'}">
+													{inbox.health.status}
+												</span>
+											{/if}
+
+											<span class="text-[10px] font-bold px-2 py-0.5 rounded {inbox.ignored ? 'bg-red-950/40 text-red-400 border border-red-900/50' : 'bg-emerald-950/40 text-emerald-400 border border-emerald-900/50'}">
+												{inbox.ignored ? 'Ignored' : 'Active'}
+											</span>
+										</div>
+									</div>
+								{/each}
+							</div>
+						</div>
+					{/if}
+
+					{#if currentHealth}
+						<div class="mt-2.5 p-3 rounded-xl border text-xs flex flex-col gap-1.5 {currentHealth.health_level === 'BANNED' ? 'bg-red-950/60 border-red-800 text-red-300' : currentHealth.health_level === 'DANGER' || currentHealth.health_level === 'WARNING' ? 'bg-amber-950/60 border-amber-800 text-amber-300' : currentHealth.health_level === 'TOKEN_EXPIRED' ? 'bg-gray-900 border-gray-700 text-gray-300' : 'bg-emerald-950/60 border-emerald-800/80 text-emerald-300'}">
 							<div class="flex items-center justify-between">
 								<div class="flex items-center gap-2 font-bold">
-									<span class="w-2.5 h-2.5 rounded-full {data.account.whatsapp_health.health_level === 'BANNED' ? 'bg-red-500 animate-pulse' : data.account.whatsapp_health.health_level === 'DANGER' || data.account.whatsapp_health.health_level === 'WARNING' ? 'bg-amber-400 animate-pulse' : data.account.whatsapp_health.health_level === 'TOKEN_EXPIRED' ? 'bg-gray-400' : 'bg-emerald-400'}"></span>
-									<span>WhatsApp Status: {data.account.whatsapp_health.status}</span>
+									<span class="w-2.5 h-2.5 rounded-full {currentHealth.health_level === 'BANNED' ? 'bg-red-500 animate-pulse' : currentHealth.health_level === 'DANGER' || currentHealth.health_level === 'WARNING' ? 'bg-amber-400 animate-pulse' : currentHealth.health_level === 'TOKEN_EXPIRED' ? 'bg-gray-400' : 'bg-emerald-400'}"></span>
+									<span>Active WhatsApp Status: {currentHealth.status}</span>
 								</div>
-								<span class="text-[10px] font-mono opacity-80">{data.account.whatsapp_health.verified_at || 'Live'}</span>
+								<span class="text-[10px] font-mono opacity-80">{currentHealth.verified_at || 'Live'}</span>
 							</div>
 							<div class="grid grid-cols-2 gap-2 text-[11px] pt-1.5 border-t border-white/10">
-								<div>Quality Rating: <span class="font-bold">{data.account.whatsapp_health.quality_rating}</span></div>
-								<div>Daily Limit: <span class="font-bold">{data.account.whatsapp_health.messaging_limit}</span></div>
+								<div>Quality Rating: <span class="font-bold">{currentHealth.quality_rating}</span></div>
+								<div>Daily Limit: <span class="font-bold">{currentHealth.messaging_limit}</span></div>
 							</div>
-							{#if data.account.whatsapp_health.error}
-								<div class="text-[10px] text-red-400 mt-0.5">Note: {data.account.whatsapp_health.error}</div>
+							{#if currentHealth.error}
+								<div class="text-[10px] text-red-400 mt-0.5">Note: {currentHealth.error}</div>
 							{/if}
 						</div>
 					{/if}
