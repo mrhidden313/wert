@@ -64,7 +64,8 @@ export async function load({ params }) {
 				monthly_fee_amount: subscription.monthly_fee_amount || 0,
 				pending_fees: subscription.pending_fees || [],
 				history: subscription.history || [],
-				freeze: subscription.freeze || false
+				freeze: subscription.freeze || false,
+				whatsapp_health: subscription.whatsapp_health || null
 			}
 		};
 
@@ -147,16 +148,21 @@ export const actions = {
 				console.log(`Deleted old subscription doc: ${matchingSubKey} for email ${linkedEmail}`);
 			}
 
+			const isAutoFreeze = daysRemaining <= 0;
+			const status = daysRemaining > 0 ? 'active' : 'expired';
+
 			// Update in Firebase (this also acts as a migration if it was stored by a random ID before)
 			await FirebaseAdmin.updateSubscription(accountId, {
 				planType,
 				daysRemaining,
 				linkedEmail,
-				phoneNumber: phoneNumber || 'N/A'
+				phoneNumber: phoneNumber || 'N/A',
+				freeze: isAutoFreeze,
+				status
 			});
 
-			await FirebaseAdmin.addAuditLog(adminEmail, 'Edit Subscription', `Edited subscription for account ${accountId}. Days: ${daysRemaining}, Plan: ${planType}`);
-			return { success: true, message: 'Subscription data updated successfully in Firebase!' };
+			await FirebaseAdmin.addAuditLog(adminEmail, 'Edit Subscription', `Edited subscription for account ${accountId}. Days: ${daysRemaining}, Plan: ${planType}, Freeze: ${isAutoFreeze}`);
+			return { success: true, message: `Subscription updated! ${isAutoFreeze ? '(App Auto-Frozen: 0 Days Left)' : '(App Active & Unfrozen)'}` };
 		} catch (error) {
 			console.error('Edit subscription error:', error);
 			return fail(500, { error: 'Internal server error while updating subscription' });
@@ -217,16 +223,25 @@ export const actions = {
 
 			const combinedPhone = extractedNumbers.join(', ');
 
-			// Automatically update Firebase subscription with the fetched phone number
-			await FirebaseAdmin.updateSubscription(accountId, { phoneNumber: combinedPhone });
-			await FirebaseAdmin.addAuditLog(adminEmail, 'Fetch Phone Number', `Auto-fetched ${combinedPhone} from Chatwoot inboxes for account ${accountId}`);
+			const waInboxWithHealth = (inboxes || []).find(i => i.health);
+			const healthInfo = waInboxWithHealth?.health || null;
+
+			const updatePayload = { phoneNumber: combinedPhone };
+			if (healthInfo) {
+				updatePayload.whatsapp_health = healthInfo;
+			}
+
+			// Automatically update Firebase subscription with the fetched phone number & health
+			await FirebaseAdmin.updateSubscription(accountId, updatePayload);
+			await FirebaseAdmin.addAuditLog(adminEmail, 'Fetch Phone Number & Health', `Auto-fetched ${combinedPhone} (Health: ${healthInfo?.health_level || 'UNKNOWN'}) for account ${accountId}`);
 
 			return {
 				success: true,
 				fetchedPhone: combinedPhone,
+				health: healthInfo,
 				count: extractedNumbers.length,
 				numbers: extractedNumbers,
-				message: `Successfully fetched ${extractedNumbers.length} number(s) from Chatwoot: ${combinedPhone}`
+				message: `Successfully synced ${extractedNumbers.length} number(s) from Chatwoot: ${combinedPhone} ${healthInfo ? `(Status: ${healthInfo.status}, Quality: ${healthInfo.quality_rating})` : ''}`
 			};
 		} catch (err) {
 			console.error("Failed to fetch inbox numbers:", err);
@@ -351,9 +366,9 @@ export const actions = {
 		try {
 			const chatwoot = new ChatwootAPI();
 			await chatwoot.suspendAccount(params.id);
-			await FirebaseAdmin.updateSubscription(params.id, { status: 'suspended', daysRemaining: 0 });
-			await FirebaseAdmin.addAuditLog(adminEmail, 'Suspend Account', `Suspended account ${params.id}`);
-			return { success: true, message: 'Account suspended.' };
+			await FirebaseAdmin.updateSubscription(params.id, { status: 'suspended', daysRemaining: 0, freeze: true });
+			await FirebaseAdmin.addAuditLog(adminEmail, 'Suspend Account', `Suspended account ${params.id} (App Frozen)`);
+			return { success: true, message: 'Account suspended and app frozen.' };
 		} catch (err) {
 			return fail(500, { error: 'Failed to suspend account' });
 		}
@@ -366,9 +381,9 @@ export const actions = {
 		try {
 			const chatwoot = new ChatwootAPI();
 			await chatwoot.reactivateAccount(params.id);
-			await FirebaseAdmin.updateSubscription(params.id, { status: 'active', daysRemaining: days });
-			await FirebaseAdmin.addAuditLog(adminEmail, 'Renew Account', `Renewed account ${params.id} for ${days} days`);
-			return { success: true, message: 'Account renewed.' };
+			await FirebaseAdmin.updateSubscription(params.id, { status: 'active', daysRemaining: days, freeze: false });
+			await FirebaseAdmin.addAuditLog(adminEmail, 'Renew Account', `Renewed account ${params.id} for ${days} days (App Unfrozen)`);
+			return { success: true, message: `Account renewed for ${days} days and app unfrozen.` };
 		} catch (err) {
 			return fail(500, { error: 'Failed to renew account' });
 		}

@@ -1,4 +1,5 @@
 import { FirebaseAdmin } from '$lib/server/firebase';
+import { ChatwootAPI } from '$lib/server/chatwoot';
 import { json } from '@sveltejs/kit';
 import { env } from '$env/dynamic/private';
 
@@ -14,29 +15,31 @@ export async function GET({ request }) {
 		let logs = [];
 		const { FieldValue } = await import('firebase-admin/firestore');
 		const { db } = await import('$lib/server/firebase');
+		const chatwoot = new ChatwootAPI();
 
 		for (const [accountId, sub] of Object.entries(allSubs)) {
-			// Only process active accounts
-			if (sub.status !== 'active') continue;
+			// Skip only explicitly suspended accounts
+			if (sub.status === 'suspended') continue;
 
-			let currentDays = sub.daysRemaining || 0;
+			let currentDays = sub.daysRemaining !== undefined ? Number(sub.daysRemaining) : 0;
 			
 			// 1. Decrement days if > 0
 			if (currentDays > 0) {
 				currentDays -= 1;
 			}
 
-			let updateData = { daysRemaining: currentDays };
-			let needsUpdate = true; // We almost always update to decrement the day
+			let updateData = { 
+				daysRemaining: currentDays,
+				status: currentDays > 0 ? 'active' : 'expired'
+			};
 			
-			// 2. Auto-Freeze and Generate Invoice if days reach exactly 0 (or were already 0)
+			// 2. AUTO-FREEZE and Generate Invoice if days reach 0 or below
 			if (currentDays <= 0) {
-				updateData.freeze = true;
-				const monthlyFee = sub.monthly_fee_amount || 0;
+				updateData.freeze = true; // Auto-freeze client interface!
+				const monthlyFee = Number(sub.monthly_fee_amount || 0);
 				
 				// Only generate if there's an actual fee configured
 				if (monthlyFee > 0) {
-					// We use next month for the label since it's an advance fee, or current month. Let's use current.
 					const monthLabel = new Date().toLocaleString('default', { month: 'short', year: 'numeric' });
 					
 					// Prevent duplicate invoices for the same month
@@ -58,7 +61,7 @@ export async function GET({ request }) {
 						const historyEntry = {
 							date: new Date().toISOString(),
 							action: `Auto-generated Invoice for ${monthLabel} (Rs ${monthlyFee})`,
-							admin: 'System (Cron)',
+							admin: 'System (Midnight Cron)',
 							type: 'invoice_generated'
 						};
 						updateData.history = FieldValue.arrayUnion(historyEntry);
@@ -67,11 +70,43 @@ export async function GET({ request }) {
 				}
 			}
 
-			if (needsUpdate) {
-				updateData.updatedAt = new Date().toISOString();
-				await db.collection('subscriptions').doc(accountId).set(updateData, { merge: true });
-				logs.push(`Updated ${accountId} (Days remaining: ${currentDays})`);
+			// 3. Daily 24h WhatsApp Phone & Health Sync
+			try {
+				const inboxes = await chatwoot.getAccountInboxes(accountId);
+				if (inboxes && inboxes.length > 0) {
+					const extractedNumbers = [];
+					inboxes.forEach(inbox => {
+						const directPhone = inbox.phone_number;
+						const channelPhone = inbox.channel?.phone_number;
+						const providerPhone = inbox.provider_config?.phone_number || inbox.channel?.provider_config?.phone_number;
+						const nameMatch = inbox.name ? String(inbox.name).match(/(\+?[0-9]{10,15})/g) : null;
+						const candidates = [directPhone, channelPhone, providerPhone, ...(nameMatch || [])].filter(Boolean);
+						candidates.forEach(raw => {
+							if (typeof raw === 'string' && raw.trim()) {
+								const cleaned = raw.replace(/[^\d+]/g, '').trim();
+								if (cleaned.length >= 10 && !extractedNumbers.includes(cleaned)) {
+									extractedNumbers.push(cleaned);
+								}
+							}
+						});
+					});
+
+					if (extractedNumbers.length > 0) {
+						updateData.phoneNumber = extractedNumbers.join(', ');
+					}
+
+					const waInboxWithHealth = inboxes.find(i => i.health);
+					if (waInboxWithHealth?.health) {
+						updateData.whatsapp_health = waInboxWithHealth.health;
+					}
+				}
+			} catch (e) {
+				// Non-fatal if single account inboxes fetch fails
 			}
+
+			updateData.updatedAt = new Date().toISOString();
+			await db.collection('subscriptions').doc(accountId).set(updateData, { merge: true });
+			logs.push(`Processed ${accountId} (Days: ${currentDays}, Freeze: ${updateData.freeze ? 'YES' : 'NO'})`);
 		}
 
 		return json({ success: true, processed: Object.keys(allSubs).length, logs });

@@ -323,6 +323,12 @@
 										<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
 									</button>
 								</div>
+								{#if account.whatsapp_health}
+									<div class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold mt-1 {account.whatsapp_health.health_level === 'BANNED' ? 'bg-red-950/80 text-red-300 border border-red-800' : account.whatsapp_health.health_level === 'DANGER' || account.whatsapp_health.health_level === 'WARNING' ? 'bg-amber-950/80 text-amber-300 border border-amber-800' : account.whatsapp_health.health_level === 'TOKEN_EXPIRED' ? 'bg-gray-800 text-gray-400 border border-gray-700' : 'bg-emerald-950/80 text-emerald-300 border border-emerald-800/60'}">
+										<span class="w-1.5 h-1.5 rounded-full {account.whatsapp_health.health_level === 'BANNED' ? 'bg-red-500 animate-pulse' : account.whatsapp_health.health_level === 'DANGER' || account.whatsapp_health.health_level === 'WARNING' ? 'bg-amber-400 animate-pulse' : account.whatsapp_health.health_level === 'TOKEN_EXPIRED' ? 'bg-gray-400' : 'bg-emerald-400'}"></span>
+										<span>WhatsApp: {account.whatsapp_health.status || 'CONNECTED'} ({account.whatsapp_health.quality_rating || 'GREEN'})</span>
+									</div>
+								{/if}
 							{:else}
 								<div class="text-[10px] text-gray-600 italic">No Phone Saved</div>
 							{/if}
@@ -377,7 +383,7 @@
 									{:else}
 										<span class="px-2 py-0.5 text-[11px] font-bold rounded-full bg-red-950 text-red-300 border border-red-800/50">Suspended</span>
 									{/if}
-									{#if account.freeze}
+									{#if account.freeze || (account.daysRemaining !== undefined && account.daysRemaining <= 0)}
 										<span class="px-2 py-0.5 text-[11px] font-black rounded-full bg-orange-950 text-orange-300 border border-orange-800/60 animate-pulse">Frozen</span>
 									{/if}
 								</div>

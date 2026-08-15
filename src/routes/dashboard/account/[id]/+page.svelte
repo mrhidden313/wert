@@ -74,7 +74,7 @@
 			{:else}
 				<span class="px-2.5 py-0.5 text-xs font-bold rounded-full bg-red-950 text-red-400 border border-red-800/50">Suspended</span>
 			{/if}
-			{#if data.account?.freeze}
+			{#if data.account?.freeze || (data.account?.daysRemaining !== undefined && data.account.daysRemaining <= 0)}
 				<span class="px-2.5 py-0.5 text-xs font-bold rounded-full bg-orange-950 text-orange-400 border border-orange-800/60 animate-pulse">App Frozen</span>
 			{/if}
 		</div>
@@ -217,6 +217,25 @@
 						</button>
 					</div>
 					<input type="text" name="phoneNumber" bind:value={currentPhone} placeholder="e.g. +923001234567" class="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 font-mono" />
+
+					{#if data.account.whatsapp_health}
+						<div class="mt-2.5 p-3 rounded-xl border text-xs flex flex-col gap-1.5 {data.account.whatsapp_health.health_level === 'BANNED' ? 'bg-red-950/60 border-red-800 text-red-300' : data.account.whatsapp_health.health_level === 'DANGER' || data.account.whatsapp_health.health_level === 'WARNING' ? 'bg-amber-950/60 border-amber-800 text-amber-300' : data.account.whatsapp_health.health_level === 'TOKEN_EXPIRED' ? 'bg-gray-900 border-gray-700 text-gray-300' : 'bg-emerald-950/60 border-emerald-800/80 text-emerald-300'}">
+							<div class="flex items-center justify-between">
+								<div class="flex items-center gap-2 font-bold">
+									<span class="w-2.5 h-2.5 rounded-full {data.account.whatsapp_health.health_level === 'BANNED' ? 'bg-red-500 animate-pulse' : data.account.whatsapp_health.health_level === 'DANGER' || data.account.whatsapp_health.health_level === 'WARNING' ? 'bg-amber-400 animate-pulse' : data.account.whatsapp_health.health_level === 'TOKEN_EXPIRED' ? 'bg-gray-400' : 'bg-emerald-400'}"></span>
+									<span>WhatsApp Status: {data.account.whatsapp_health.status}</span>
+								</div>
+								<span class="text-[10px] font-mono opacity-80">{data.account.whatsapp_health.verified_at || 'Live'}</span>
+							</div>
+							<div class="grid grid-cols-2 gap-2 text-[11px] pt-1.5 border-t border-white/10">
+								<div>Quality Rating: <span class="font-bold">{data.account.whatsapp_health.quality_rating}</span></div>
+								<div>Daily Limit: <span class="font-bold">{data.account.whatsapp_health.messaging_limit}</span></div>
+							</div>
+							{#if data.account.whatsapp_health.error}
+								<div class="text-[10px] text-red-400 mt-0.5">Note: {data.account.whatsapp_health.error}</div>
+							{/if}
+						</div>
+					{/if}
 				</div>
 
 				<div class="pt-2">

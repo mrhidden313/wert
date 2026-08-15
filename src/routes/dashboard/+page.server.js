@@ -52,7 +52,8 @@ export async function load({ locals }) {
 				phoneNumber: sub.phoneNumber || 'N/A',
 				labelColor: sub.labelColor || 'gray',
 				totalDue: totalDue,
-				monthlyFeeAmount: sub.monthly_fee_amount || 0
+				monthlyFeeAmount: sub.monthly_fee_amount || 0,
+				whatsapp_health: sub.whatsapp_health || null
 			};
 		});
 
@@ -127,6 +128,8 @@ export const actions = {
 			
 			const updateData = {
 				daysRemaining: newDays,
+				freeze: newDays <= 0,
+				status: newDays > 0 ? 'active' : 'expired',
 				history: FieldValue.arrayUnion(historyEntry),
 				updatedAt: new Date().toISOString()
 			};
@@ -136,8 +139,8 @@ export const actions = {
 			
 			await docRef.set(updateData, { merge: true });
 
-			await FirebaseAdmin.addAuditLog(adminEmail, 'Refresh Days', `Added ${daysToAdd} days to account ${accountId}`);
-			return { success: true, message: `Successfully added ${daysToAdd} days to Account ${accountId}!` };
+			await FirebaseAdmin.addAuditLog(adminEmail, 'Refresh Days', `Added ${daysToAdd} days to account ${accountId} (New Total: ${newDays}, Freeze: ${newDays <= 0})`);
+			return { success: true, message: `Successfully added ${daysToAdd} days to Account ${accountId}! ${newDays > 0 ? '(App Unfrozen)' : '(App Auto-Frozen)'}` };
 		} catch (err) {
 			console.error("Failed to refresh days", err);
 			return fail(500, { error: 'Failed to refresh days' });
