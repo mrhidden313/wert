@@ -75,7 +75,14 @@ export async function POST({ locals }) {
 					phoneCount++;
 				}
 
-				const waInboxWithHealth = activeInboxes.find(i => i.health);
+				const connectedInbox = activeInboxes.find(i => 
+					i.health && (i.health.status === 'CONNECTED' || i.health.health_level === 'HEALTHY' || i.health.health_level === 'WARNING')
+				);
+				const bannedInbox = activeInboxes.find(i => 
+					i.health && (i.health.status === 'BANNED' || i.health.status === 'RESTRICTED' || i.health.health_level === 'BANNED')
+				);
+				const waInboxWithHealth = connectedInbox || bannedInbox || activeInboxes.find(i => i.health);
+
 				if (waInboxWithHealth?.health) {
 					updatePayload.whatsapp_health = waInboxWithHealth.health;
 				}

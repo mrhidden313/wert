@@ -42,9 +42,18 @@ function extractInboxesData(inboxes, ignoredIds = []) {
 		}
 	});
 
-	// Find health from first active WhatsApp inbox with health info
-	const activeWaWithHealth = activeInboxes.find(i => i.health);
-	const activeHealth = activeWaWithHealth?.health || null;
+	// 1. If at least ONE active channel is CONNECTED -> Account is considered CONNECTED
+	const connectedInbox = activeInboxes.find(i => 
+		i.health && (i.health.status === 'CONNECTED' || i.health.health_level === 'HEALTHY' || i.health.health_level === 'WARNING')
+	);
+
+	// 2. If no working connected inbox, check if all/any are BANNED
+	const bannedInbox = activeInboxes.find(i => 
+		i.health && (i.health.status === 'BANNED' || i.health.status === 'RESTRICTED' || i.health.health_level === 'BANNED')
+	);
+
+	// 3. Fallback to any health
+	const activeHealth = connectedInbox?.health || bannedInbox?.health || activeInboxes[0]?.health || null;
 
 	return {
 		allInboxes: allInboxesParsed,

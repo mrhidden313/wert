@@ -106,7 +106,14 @@ export async function GET({ request }) {
 						updateData.phoneNumber = extractedNumbers.join(', ');
 					}
 
-					const waInboxWithHealth = activeInboxes.find(i => i.health);
+					const connectedInbox = activeInboxes.find(i => 
+						i.health && (i.health.status === 'CONNECTED' || i.health.health_level === 'HEALTHY' || i.health.health_level === 'WARNING')
+					);
+					const bannedInbox = activeInboxes.find(i => 
+						i.health && (i.health.status === 'BANNED' || i.health.status === 'RESTRICTED' || i.health.health_level === 'BANNED')
+					);
+					const waInboxWithHealth = connectedInbox || bannedInbox || activeInboxes.find(i => i.health);
+
 					if (waInboxWithHealth?.health) {
 						updateData.whatsapp_health = waInboxWithHealth.health;
 					}
