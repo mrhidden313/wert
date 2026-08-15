@@ -5,7 +5,7 @@
 
 	let { data, form } = $props();
 
-	let currentTab = $state('all'); // 'all', 'active', 'expired', 'suspended', 'frozen'
+	let currentTab = $state('active'); // 'all', 'active', 'expired', 'suspended', 'frozen'
 	let filterColor = $state('all');
 	let sortBy = $state('latest');
 	let searchQuery = $state('');
