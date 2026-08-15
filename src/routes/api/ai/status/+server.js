@@ -20,16 +20,25 @@ export async function GET() {
 	}
 
 	try {
-		let candidateModels = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-flash-latest', 'gemini-1.5-pro'];
+		const defaultModels = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-flash-latest', 'gemini-1.5-pro', 'gemini-2.5-flash'];
+		let candidateModels = [...defaultModels];
+
 		try {
 			const listRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
 			if (listRes.ok) {
 				const listData = await listRes.json();
 				const discovered = (listData.models || [])
-					.filter(m => m.supportedGenerationMethods?.includes('generateContent') && m.name?.toLowerCase().includes('gemini'))
+					.filter(m => 
+						m.supportedGenerationMethods?.includes('generateContent') &&
+						m.name?.toLowerCase().includes('gemini') &&
+						!m.name?.toLowerCase().includes('tts') &&
+						!m.name?.toLowerCase().includes('audio') &&
+						!m.name?.toLowerCase().includes('embedding') &&
+						!m.name?.toLowerCase().includes('imagen')
+					)
 					.map(m => m.name.replace('models/', ''));
 				if (discovered.length > 0) {
-					candidateModels = [...new Set([...discovered, ...candidateModels])];
+					candidateModels = [...new Set([...defaultModels, ...discovered])];
 				}
 			}
 		} catch (e) {}
@@ -57,9 +66,6 @@ export async function GET() {
 				}
 				lastRes = geminiRes;
 				lastErrText = await geminiRes.text();
-				if (![503, 429, 404].includes(geminiRes.status)) {
-					break;
-				}
 			} catch (e) {}
 		}
 

@@ -160,18 +160,26 @@ USER INQUIRY:
 "${message}"
 `;
 
-		// 2. Discover models or try best models
-		let candidateModels = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-flash-latest', 'gemini-1.5-pro'];
+		// 2. Prioritize proven text-generation models first, filter out TTS / Audio-only models
+		const defaultModels = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-flash-latest', 'gemini-1.5-pro', 'gemini-2.5-flash'];
+		let candidateModels = [...defaultModels];
 
 		try {
 			const listRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
 			if (listRes.ok) {
 				const listData = await listRes.json();
 				const discovered = (listData.models || [])
-					.filter(m => m.supportedGenerationMethods?.includes('generateContent') && m.name?.toLowerCase().includes('gemini'))
+					.filter(m => 
+						m.supportedGenerationMethods?.includes('generateContent') &&
+						m.name?.toLowerCase().includes('gemini') &&
+						!m.name?.toLowerCase().includes('tts') &&
+						!m.name?.toLowerCase().includes('audio') &&
+						!m.name?.toLowerCase().includes('embedding') &&
+						!m.name?.toLowerCase().includes('imagen')
+					)
 					.map(m => m.name.replace('models/', ''));
 				if (discovered.length > 0) {
-					candidateModels = [...new Set([...discovered, ...candidateModels])];
+					candidateModels = [...new Set([...defaultModels, ...discovered])];
 				}
 			}
 		} catch (e) {}
@@ -203,10 +211,7 @@ USER INQUIRY:
 
 				lastRes = res;
 				lastErrorText = await res.text();
-
-				if (![503, 429, 404].includes(res.status)) {
-					break;
-				}
+				// Continue loop through candidate models to find a working text model
 			} catch (err) {
 				console.error(`Error trying model ${modelName}:`, err);
 			}
@@ -217,7 +222,7 @@ USER INQUIRY:
 			reply: `### 🔴 Google Gemini API Unavailable\n` +
 				`API returned status \`${lastRes?.status || 'ERROR'}\`.\n\n` +
 				`**Details:**\n\`\`\`json\n${lastErrorText.substring(0, 400)}\n\`\`\`\n` +
-				`*Ensure \`GEMINI_API_KEY\` is set in your Vercel environment variables.*`
+				`*Ensure \`GEMINI_API_KEY\` in your Vercel settings has quota available.*`
 		});
 	} catch (err) {
 		console.error("AI Chat API Error:", err);
