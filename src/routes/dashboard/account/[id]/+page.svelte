@@ -80,7 +80,7 @@
 
 	function openStartupFeeModal() {
 		startupFeeData = {
-			amount: data.account?.startup_fee?.amount || 5000
+			amount: data.account?.startup_fee?.total || data.account?.startup_fee?.amount || 5000
 		};
 		showStartupFeeModal = true;
 	}

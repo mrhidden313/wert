@@ -21,12 +21,10 @@ export async function load({ locals }) {
 				if (matchingSubKey) sub = subscriptions[matchingSubKey];
 			}
 
-			const isSuspended = acc.status === 'suspended' || sub?.status === 'suspended';
-
-			if (sub && !isSuspended) {
-				const startupPaid = sub.startup_fee?.paid || 0;
-				const paidFees = (sub.pending_fees || []).filter(f => f.paid === true);
-				const monthlyPaid = paidFees.reduce((sum, f) => sum + f.amount, 0);
+			if (sub) {
+				const startupPaid = Number(sub.startup_fee?.paid || 0);
+				const pendingFees = sub.pending_fees || [];
+				const monthlyPaid = pendingFees.reduce((sum, f) => sum + Number(f.paid || 0), 0);
 				totalRevenue += startupPaid + monthlyPaid;
 			}
 		});

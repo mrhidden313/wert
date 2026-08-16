@@ -30,17 +30,28 @@ export async function load() {
 				if (matchingSubKey) sub = subscriptions[matchingSubKey];
 			}
 
-			const isSuspended = acc.status === 'suspended' || sub?.status === 'suspended';
+			if (sub) {
+				const startupTotal = Number(sub.startup_fee?.total || sub.startup_fee?.amount || 0);
+				const startupPaid = Number(sub.startup_fee?.paid || 0);
+				const startupRemaining = Math.max(0, startupTotal - startupPaid);
+				
+				const normalizedPendingFees = (sub.pending_fees || []).map(f => {
+					const total = Number(f.total || f.amount || 0);
+					const paid = Number(f.paid || 0);
+					return {
+						...f,
+						month: f.month || f.month_label || 'Monthly Fee',
+						month_label: f.month_label || f.month || 'Monthly Fee',
+						total,
+						amount: total,
+						paid,
+						remaining: Math.max(0, total - paid)
+					};
+				});
 
-			if (sub && !isSuspended) {
-				const startupRemaining = sub.startup_fee?.remaining || 0;
-				const startupPaid = sub.startup_fee?.paid || 0;
-				
-				const pendingFees = (sub.pending_fees || []).filter(f => f.remaining > 0);
-				const paidFees = (sub.pending_fees || []).filter(f => f.paid === true);
-				
+				const pendingFees = normalizedPendingFees.filter(f => f.remaining > 0);
 				const monthlyRemaining = pendingFees.reduce((sum, f) => sum + f.remaining, 0);
-				const monthlyPaid = paidFees.reduce((sum, f) => sum + f.amount, 0);
+				const monthlyPaid = normalizedPendingFees.reduce((sum, f) => sum + f.paid, 0);
 				
 				const totalDue = startupRemaining + monthlyRemaining;
 				

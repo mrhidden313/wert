@@ -137,9 +137,24 @@ export async function load({ params }) {
 					instagram: false,
 					line: false
 				},
-				startup_fee: subscription.startup_fee || null,
-				monthly_fee_amount: subscription.monthly_fee_amount || 0,
-				pending_fees: subscription.pending_fees || [],
+				startup_fee: subscription.startup_fee ? {
+					total: Number(subscription.startup_fee.total || subscription.startup_fee.amount || 0),
+					amount: Number(subscription.startup_fee.amount || subscription.startup_fee.total || 0),
+					paid: Number(subscription.startup_fee.paid || 0),
+					remaining: Math.max(0, Number(subscription.startup_fee.total || subscription.startup_fee.amount || 0) - Number(subscription.startup_fee.paid || 0))
+				} : null,
+				monthly_fee_amount: Number(subscription.monthly_fee_amount || 0),
+				pending_fees: (subscription.pending_fees || []).map(f => ({
+					id: f.id,
+					month: f.month || f.month_label || 'Monthly Fee',
+					month_label: f.month_label || f.month || 'Monthly Fee',
+					total: Number(f.total || f.amount || 0),
+					amount: Number(f.amount || f.total || 0),
+					paid: Number(f.paid || 0),
+					remaining: Math.max(0, Number(f.total || f.amount || 0) - Number(f.paid || 0)),
+					status: f.status || (Number(f.paid || 0) >= Number(f.total || f.amount || 0) ? 'paid' : Number(f.paid || 0) > 0 ? 'partial' : 'unpaid'),
+					generatedAt: f.generatedAt || ''
+				})),
 				history: subscription.history || [],
 				freeze: subscription.freeze || false,
 				whatsapp_health: subscription.whatsapp_health || parsedInboxes.activeHealth || null,
@@ -366,15 +381,17 @@ export const actions = {
 			const sub = await FirebaseAdmin.getSubscription(params.id);
 			let paid = 0;
 			if (sub && sub.startup_fee) {
-				paid = sub.startup_fee.paid || 0;
+				paid = Number(sub.startup_fee.paid || 0);
 			}
 			await FirebaseAdmin.updateSubscription(params.id, {
 				startup_fee: {
 					total: amount,
-					paid: paid
+					amount: amount,
+					paid: paid,
+					remaining: Math.max(0, amount - paid)
 				}
 			});
-			await FirebaseAdmin.addAuditLog(adminEmail, 'Set Startup Fee', `Set total startup fee to ${amount} for account ${params.id}`);
+			await FirebaseAdmin.addAuditLog(adminEmail, 'Set Startup Fee', `Set total startup fee to PKR ${amount} for account ${params.id}`);
 			return { success: true, message: 'Startup fee updated successfully!' };
 		} catch (e) {
 			return fail(500, { error: e.message });
@@ -389,7 +406,7 @@ export const actions = {
 			await FirebaseAdmin.updateSubscription(params.id, {
 				monthly_fee_amount: amount
 			});
-			await FirebaseAdmin.addAuditLog(adminEmail, 'Set Monthly Fee Amount', `Set standard monthly fee amount to ${amount} for account ${params.id}`);
+			await FirebaseAdmin.addAuditLog(adminEmail, 'Set Monthly Fee Amount', `Set standard monthly fee amount to PKR ${amount} for account ${params.id}`);
 			return { success: true, message: 'Monthly fee rate saved successfully!' };
 		} catch (e) {
 			return fail(500, { error: e.message });
@@ -408,8 +425,11 @@ export const actions = {
 			const newFee = {
 				id: 'fee_' + Date.now(),
 				month: month,
+				month_label: month,
 				total: amount,
+				amount: amount,
 				paid: 0,
+				remaining: amount,
 				status: 'unpaid',
 				generatedAt: new Date().toISOString()
 			};
@@ -420,6 +440,10 @@ export const actions = {
 		} catch (e) {
 			return fail(500, { error: e.message });
 		}
+	},
+
+	addPendingFee: async (event) => {
+		return actions.addInvoice(event);
 	},
 
 	recordPayment: async ({ request, params, locals }) => {
@@ -444,10 +468,13 @@ export const actions = {
 			const paymentRecord = {
 				id: 'pay_' + Date.now(),
 				type: type === 'startup' ? 'Startup Fee' : 'Monthly Fee',
+				action: `Recorded ${type === 'startup' ? 'Startup Fee' : 'Monthly Fee'} payment of PKR ${amount} via ${bankType}`,
 				amount: amount,
+				amount_paid: amount,
 				bankType: bankType,
 				txId: txId,
 				notes: notes,
+				admin: adminEmail,
 				recordedBy: adminEmail,
 				date: new Date().toISOString()
 			};
@@ -456,19 +483,26 @@ export const actions = {
 			const updatePayload = { history };
 
 			if (type === 'startup') {
-				const currentPaid = sub.startup_fee?.paid || 0;
-				const total = sub.startup_fee?.total || 0;
+				const currentPaid = Number(sub.startup_fee?.paid || 0);
+				const total = Number(sub.startup_fee?.total || sub.startup_fee?.amount || 0);
+				const newPaid = currentPaid + amount;
 				updatePayload.startup_fee = {
 					total: total,
-					paid: currentPaid + amount
+					amount: total,
+					paid: newPaid,
+					remaining: Math.max(0, total - newPaid)
 				};
 			} else if (type === 'monthly') {
 				const pending_fees = sub.pending_fees || [];
 				const feeIndex = pending_fees.findIndex(f => f.id === feeId);
 				if (feeIndex !== -1) {
 					const fee = pending_fees[feeIndex];
-					fee.paid = (fee.paid || 0) + amount;
-					if (fee.paid >= fee.total) {
+					const feeTotal = Number(fee.total || fee.amount || 0);
+					fee.paid = Number(fee.paid || 0) + amount;
+					fee.total = feeTotal;
+					fee.amount = feeTotal;
+					fee.remaining = Math.max(0, feeTotal - fee.paid);
+					if (fee.paid >= feeTotal) {
 						fee.status = 'paid';
 					} else {
 						fee.status = 'partial';
