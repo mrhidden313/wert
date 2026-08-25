@@ -193,5 +193,15 @@ export class ChatwootAPI {
 		}
 	}
 
+	/**
+	 * Generates single-use ghost login / impersonation credentials for an account.
+	 * @param {string|number} accountId
+	 */
+	async impersonateAccount(accountId) {
+		return this._bridgeRequest('POST', '/super_admin/bridge/impersonate', {
+			account_id: accountId
+		});
+	}
+
 }
 
