@@ -4,10 +4,16 @@ import { json } from '@sveltejs/kit';
 import { env } from '$env/dynamic/private';
 
 export async function GET({ request }) {
-	// Security check: Either valid Vercel cron header or a secret token
+	// Security check: Either valid Vercel cron header or a strictly configured secret token
 	const authHeader = request.headers.get('authorization');
-	if (authHeader !== `Bearer ${env.CRON_SECRET || 'secret123'}` && request.headers.get('x-vercel-cron') !== '1') {
-		return new Response('Unauthorized', { status: 401 });
+	const isVercelCron = request.headers.get('x-vercel-cron') === '1';
+	const isValidBearer = env.CRON_SECRET && authHeader === `Bearer ${env.CRON_SECRET}`;
+
+	if (!isValidBearer && !isVercelCron) {
+		return new Response(JSON.stringify({ success: false, error: 'Unauthorized: Invalid cron authentication' }), { 
+			status: 401,
+			headers: { 'Content-Type': 'application/json' }
+		});
 	}
 
 	try {

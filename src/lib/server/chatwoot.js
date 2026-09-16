@@ -42,13 +42,16 @@ export class ChatwootAPI {
 
 	async _bridgeRequest(method, endpoint, body = null) {
 		const url = `${CHATWOOT_BASE_URL}${endpoint}`;
-		// Retrieve secret from environment, default empty if not set
-		const secret = env.INSTANTFLOW_ADMIN_SECRET || 'secret123';
+		// Retrieve secret from environment, fail-closed in production
+		const secret = env.INSTANTFLOW_ADMIN_SECRET;
+		if (!secret && process.env.NODE_ENV === 'production') {
+			throw new Error('FATAL SECURITY ERROR: INSTANTFLOW_ADMIN_SECRET environment variable is missing in production!');
+		}
 		const options = {
 			method,
 			headers: {
 				'Content-Type': 'application/json',
-				'X-Admin-Secret': secret,
+				'X-Admin-Secret': secret || 'dev_secret_only_local',
 				'X-Timestamp': Math.floor(Date.now() / 1000).toString()
 			}
 		};
